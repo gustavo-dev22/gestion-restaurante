@@ -18,7 +18,7 @@ import {
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { toastSuccess, toastError, toastInfo } from "@/components/ui/Toast";
-import { http } from "@/lib/http";
+import { http, getErrorMessage } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 
 interface PageProps {
@@ -320,8 +320,11 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
       const activo = await cargarEstadoPedido();
       if (activo) setPedidoActivo(activo);
-    } catch {
-      toastError("No se pudo enviar el pedido", "Intenta nuevamente en unos segundos.");
+    } catch (error) {
+      toastError(
+        "No se pudo enviar el pedido",
+        getErrorMessage(error, "Intenta nuevamente en unos segundos.")
+      );
     } finally {
       setSending(false);
     }

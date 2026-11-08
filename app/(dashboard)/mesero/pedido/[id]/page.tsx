@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError, toastWarning } from '@/components/ui/Toast';
-import { http } from '@/lib/http';
+import { http, getErrorMessage } from '@/lib/http';
 import { formatCurrency } from '@/lib/utils';
 
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
@@ -135,8 +135,11 @@ export default function TomaPedidoPage() {
       setSendOpen(false);
       toastSuccess('Comanda enviada', 'La comanda fue procesada correctamente.');
       router.push('/mesero/salon');
-    } catch {
-      toastError('No se pudo registrar la comanda', 'Intenta nuevamente en unos segundos.');
+    } catch (error) {
+      toastError(
+        'No se pudo registrar la comanda',
+        getErrorMessage(error, 'Intenta nuevamente en unos segundos.')
+      );
     } finally {
       setSending(false);
     }
