@@ -4,6 +4,7 @@ import { Clock, CheckCircle2, Flame, Utensils, Loader2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
 import { http } from '@/lib/http';
+import { useVisibilityPolling } from '@/lib/useVisibilityPolling';
 
 interface Comanda {
   id: number;
@@ -39,10 +40,10 @@ export default function ComandasCocinaPage() {
 
   useEffect(() => {
     fetchComandas();
-    // Refresco silencioso cada 30 segundos (sin spinner a pantalla completa)
-    const interval = setInterval(() => fetchComandas(true), 30000);
-    return () => clearInterval(interval);
   }, [fetchComandas]);
+
+  // Refresco silencioso cada 30s, pausado cuando la tablet está en segundo plano.
+  useVisibilityPolling(() => fetchComandas(true), 30_000, true, false);
 
   // Tiempo transcurrido real desde la creación del pedido
   const formatTiempoTranscurrido = (fecha: string | null | undefined) => {

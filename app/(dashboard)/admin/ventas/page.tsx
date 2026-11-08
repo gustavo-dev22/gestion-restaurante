@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { Eye, Printer, Receipt, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,7 +12,6 @@ import { DataTable, DataTablePagination } from "@/components/ui/DataTable";
 import { Input } from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { http } from "@/lib/http";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { useDebounce } from "@/lib/useDebounce";
 
@@ -33,29 +33,15 @@ interface Venta {
 const ITEMS_PER_PAGE = 8;
 
 export default function VentasPage() {
-  const [ventas, setVentas] = useState<Venta[]>([]);
-  const [loading, setLoading] = useState(true);
   const [rango, setRango] = useState("hoy");
   const [detalle, setDetalle] = useState<Venta | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const busquedaDebounced = useDebounce(busqueda, 300);
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    const fetchConFiltro = async () => {
-      setLoading(true);
-      try {
-        const data = await http.get<Venta[]>(`/api/admin/ventas?rango=${rango}`);
-        setVentas(Array.isArray(data) ? data : []);
-        setPage(1);
-      } catch {
-        setVentas([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchConFiltro();
-  }, [rango]);
+  const { data, isLoading } = useSWR<Venta[]>(`/api/admin/ventas?rango=${rango}`);
+  const ventas = useMemo(() => data ?? [], [data]);
+  const loading = isLoading;
 
   const ventasFiltradas = useMemo(() => {
     const term = busquedaDebounced.trim().toLowerCase();
@@ -98,7 +84,10 @@ export default function VentasPage() {
             <button
               key={filtro}
               type="button"
-              onClick={() => setRango(filtro)}
+              onClick={() => {
+                setRango(filtro);
+                setPage(1);
+              }}
               aria-pressed={rango === filtro}
               className={`rounded-lg px-4 py-2 text-sm font-bold capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                 rango === filtro ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-800"

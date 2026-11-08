@@ -1,5 +1,6 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import useSWR from 'swr';
 import { LayoutGrid, Loader2, Users, CalendarCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
@@ -17,32 +18,20 @@ interface MesaSalon {
   meseroNombre?: string | null;
 }
 export default function SalonMeseroPage() {
-  const [mesas, setMesas] = useState<MesaSalon[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading, mutate } = useSWR<MesaSalon[]>('/api/mesas');
+  const mesas = data ?? [];
+  const loading = isLoading;
   const router = useRouter();
   const usuario = useAuthStore((state) => state.user);
 
-  const fetchMesas = useCallback(async () => {
-    try {
-      const data = await http.get<MesaSalon[]>('/api/mesas');
-      setMesas(Array.isArray(data) ? data : []);
-    } catch {
-      setMesas([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMesas();
-  }, [fetchMesas]);
-
   // Refresca el salón cuando otro componente (p. ej. la alerta QR) acepta una mesa.
   useEffect(() => {
-    const handler = () => fetchMesas();
+    const handler = () => {
+      void mutate();
+    };
     window.addEventListener('gr:mesas-updated', handler);
     return () => window.removeEventListener('gr:mesas-updated', handler);
-  }, [fetchMesas]);
+  }, [mutate]);
 
   // LÓGICA DE COLORES DINÁMICOS
   const getEstiloMesa = (estado: string) => {

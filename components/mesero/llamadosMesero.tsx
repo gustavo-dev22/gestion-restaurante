@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { BellRing, Check, Loader2 } from "lucide-react";
 import { http } from "@/lib/http";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
 import { timeAgo } from "@/lib/utils";
+import { useVisibilityPolling } from "@/lib/useVisibilityPolling";
 
 interface Llamado {
   id: number;
@@ -27,11 +28,7 @@ export default function LlamadosMesero() {
     }
   }, []);
 
-  useEffect(() => {
-    cargar();
-    const interval = setInterval(cargar, 10_000);
-    return () => clearInterval(interval);
-  }, [cargar]);
+  useVisibilityPolling(cargar, 10_000);
 
   const atender = async (id: number) => {
     setAtendiendo(id);

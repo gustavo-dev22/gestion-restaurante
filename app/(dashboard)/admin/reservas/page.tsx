@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { CalendarDays, CheckCircle, Clock, Phone, Search, User, Users, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -27,28 +28,15 @@ interface Reserva {
 const ITEMS_PER_PAGE = 6;
 
 export default function GestionReservasPage() {
-  const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<{ id: number; mesaId: number; estado: string } | null>(null);
   const [updating, setUpdating] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const busquedaDebounced = useDebounce(busqueda, 300);
   const [page, setPage] = useState(1);
 
-  const fetchReservas = async () => {
-    try {
-      const data = await http.get<Reserva[]>("/api/admin/reservas");
-      setReservas(Array.isArray(data) ? data : []);
-    } catch {
-      setReservas([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReservas();
-  }, []);
+  const { data, isLoading, mutate } = useSWR<Reserva[]>("/api/admin/reservas");
+  const reservas = useMemo(() => data ?? [], [data]);
+  const loading = isLoading;
 
   const cambiarEstado = async () => {
     if (!pending) return;
@@ -62,7 +50,7 @@ export default function GestionReservasPage() {
 
       toastSuccess("Reserva actualizada", `Reserva marcada como ${pending.estado}.`);
       setPending(null);
-      fetchReservas();
+      void mutate();
     } catch {
       toastError("No se pudo actualizar", "Intenta nuevamente en unos segundos.");
     } finally {

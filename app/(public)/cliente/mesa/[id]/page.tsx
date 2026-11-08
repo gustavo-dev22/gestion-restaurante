@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { toastSuccess, toastError, toastInfo } from "@/components/ui/Toast";
 import { http, getErrorMessage } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
+import { useVisibilityPolling } from "@/lib/useVisibilityPolling";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -183,69 +184,55 @@ export default function MenuDigitalPage({ params }: PageProps) {
   }, [mesaId, cargarDatos]);
 
   // Seguimiento en tiempo real mientras exista un pedido activo.
-  useEffect(() => {
-    if (!pedidoActivo) return;
-
-    const interval = setInterval(async () => {
-      setRefreshing(true);
-      try {
-        const activo = await cargarEstadoPedido();
-        if (activo) {
-          setPedidoActivo(activo);
-        } else {
-          setPedidoActivo(null);
-          setEstadoMesa("Libre");
-          await cargarProductos();
-          toastInfo(
-            "Pedido finalizado",
-            "Tu pedido ya no está activo. La mesa está disponible para un nuevo pedido."
-          );
-        }
-      } catch {
-        // Se reintenta en el siguiente ciclo.
-      } finally {
-        setRefreshing(false);
+  const refrescarPedido = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const activo = await cargarEstadoPedido();
+      if (activo) {
+        setPedidoActivo(activo);
+      } else {
+        setPedidoActivo(null);
+        setEstadoMesa("Libre");
+        await cargarProductos();
+        toastInfo(
+          "Pedido finalizado",
+          "Tu pedido ya no está activo. La mesa está disponible para un nuevo pedido."
+        );
       }
-    }, 10_000);
+    } catch {
+      // Se reintenta en el siguiente ciclo.
+    } finally {
+      setRefreshing(false);
+    }
+  }, [cargarEstadoPedido, cargarProductos]);
 
-    return () => clearInterval(interval);
-  }, [pedidoActivo, cargarEstadoPedido, cargarProductos]);
+  useVisibilityPolling(refrescarPedido, 10_000, Boolean(pedidoActivo), false);
 
   // Seguimiento del llamado al mesero: avisa al cliente cuando es atendido.
-  useEffect(() => {
-    if (!llamado || llamado.estado !== "Llamado") return;
+  const consultarLlamado = useCallback(async () => {
+    if (!llamado) return;
 
-    let active = true;
-    const consultar = async () => {
-      try {
-        const data = await http.get<Llamado | null>(
-          `/api/public/llamar-mesero?id=${llamado.id}&mesaId=${mesaId}`,
-          { skipAuthRedirect: true }
+    try {
+      const data = await http.get<Llamado | null>(
+        `/api/public/llamar-mesero?id=${llamado.id}&mesaId=${mesaId}`,
+        { skipAuthRedirect: true }
+      );
+
+      if (data?.estado === "Atendido") {
+        setLlamado(data);
+        toastSuccess(
+          "¡Mesero en camino!",
+          `${data.nombreMesero || "Un mesero"} atendió tu solicitud.`
         );
-
-        if (!active) return;
-
-        if (data?.estado === "Atendido") {
-          setLlamado(data);
-          toastSuccess(
-            "¡Mesero en camino!",
-            `${data.nombreMesero || "Un mesero"} atendió tu solicitud.`
-          );
-        } else if (!data) {
-          setLlamado(null);
-        }
-      } catch {
-        // Se reintenta en el siguiente ciclo.
+      } else if (!data) {
+        setLlamado(null);
       }
-    };
-
-    consultar();
-    const interval = setInterval(consultar, 5000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
+    } catch {
+      // Se reintenta en el siguiente ciclo.
+    }
   }, [llamado, mesaId]);
+
+  useVisibilityPolling(consultarLlamado, 5_000, llamado?.estado === "Llamado", true);
 
   // El aviso de "mesero en camino" desaparece solo después de un tiempo.
   useEffect(() => {

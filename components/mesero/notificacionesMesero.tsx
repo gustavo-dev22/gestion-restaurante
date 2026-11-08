@@ -8,6 +8,7 @@ import { toastSuccess, toastWarning } from "@/components/ui/Toast";
 import { formatCurrency, formatTime } from "@/lib/utils";
 import { http, getErrorMessage } from "@/lib/http";
 import { QR_PENDING_TTL_MS } from "@/lib/order-config";
+import { useVisibilityPolling } from "@/lib/useVisibilityPolling";
 
 interface PedidoPendiente {
   id: number;
@@ -70,11 +71,7 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
     }
   }, [reproducirAlerta]);
 
-  useEffect(() => {
-    buscarNuevosPedidos();
-    const interval = setInterval(buscarNuevosPedidos, 10_000);
-    return () => clearInterval(interval);
-  }, [buscarNuevosPedidos]);
+  useVisibilityPolling(buscarNuevosPedidos, 10_000);
 
   const visibles = useMemo(
     () => pendientes.filter((pedido) => !descartados.has(pedido.id)),

@@ -1,13 +1,20 @@
 import { AlertTriangle, ArrowDownCircle, DollarSign, Package } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/DataTable";
+import { ServerPagination } from "@/components/ui/ServerPagination";
 import { getInventarioReportCached } from "@/lib/reports";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function InventarioReportePage() {
-  const data = await getInventarioReportCached();
+export default async function InventarioReportePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = Number(params?.page) || 1;
+  const data = await getInventarioReportCached(page);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -100,6 +107,11 @@ export default async function InventarioReportePage() {
             ))}
           </tbody>
         </DataTable>
+        <ServerPagination
+          page={data.page}
+          totalPages={data.totalPages}
+          basePath="/admin/reportes/inventario"
+        />
       </div>
     </div>
   );

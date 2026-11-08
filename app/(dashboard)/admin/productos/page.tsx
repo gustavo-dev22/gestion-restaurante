@@ -1,7 +1,8 @@
 "use client";
 
-import { createElement, useEffect, useMemo, useState } from "react";
+import { createElement, useMemo, useState } from "react";
 import Image from "next/image";
+import useSWR from "swr";
 import { Plus, Edit, Trash2, Package, Loader2, Search, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -79,9 +80,13 @@ const DynamicIcon = ({ name }: { name: string | null }) =>
   createElement(resolveIcon(name), { size: 16 });
 
 export default function ProductosPage() {
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [categorias, setCategorias] = useState<CategoriaOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: productosData, isLoading, mutate: mutateProductos } = useSWR<Producto[]>(
+    "/api/productos"
+  );
+  const { data: categoriasData } = useSWR<CategoriaOption[]>("/api/categorias");
+  const productos = useMemo(() => productosData ?? [], [productosData]);
+  const categorias = categoriasData ?? [];
+  const loading = isLoading;
   const [filtro, setFiltro] = useState("");
   const filtroDebounced = useDebounce(filtro, 300);
 
@@ -96,31 +101,6 @@ export default function ProductosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchCategorias = async () => {
-    try {
-      const data = await http.get<CategoriaOption[]>("/api/categorias");
-      if (Array.isArray(data)) setCategorias(data);
-    } catch {
-      setCategorias([]);
-    }
-  };
-
-  const fetchProductos = async () => {
-    setLoading(true);
-    try {
-      const data = await http.get<Producto[]>("/api/productos");
-      if (Array.isArray(data)) setProductos(data);
-    } catch {
-      setProductos([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProductos();
-    fetchCategorias();
-  }, []);
 
   const productosFiltrados = useMemo(() => {
     const term = filtroDebounced.trim().toLowerCase();
@@ -194,7 +174,7 @@ export default function ProductosPage() {
         editing ? "Producto actualizado" : "Producto creado",
         "Los cambios se guardaron correctamente."
       );
-      fetchProductos();
+      void mutateProductos();
     } catch {
       toastError("No se pudo guardar", "Revisa los datos e inténtalo nuevamente.");
     } finally {
@@ -209,7 +189,7 @@ export default function ProductosPage() {
       await http.delete(`/api/productos?id=${deleteTarget.id}`);
       toastSuccess("Producto eliminado", `${deleteTarget.nombre} se quitó de la carta.`);
       setDeleteTarget(null);
-      fetchProductos();
+      void mutateProductos();
     } catch {
       toastError("No se pudo eliminar", "Intenta nuevamente en unos segundos.");
     } finally {

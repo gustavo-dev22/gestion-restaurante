@@ -7,10 +7,11 @@ import {
   Loader2, Save, UtensilsCrossed, X 
 } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { toastSuccess, toastError, toastWarning } from '@/components/ui/Toast';
+import { toastSuccess, toastError, toastWarning, toastInfo } from '@/components/ui/Toast';
 import { http, getErrorMessage } from '@/lib/http';
 import { formatCurrency } from '@/lib/utils';
 import { useFocusTrap } from '@/lib/useFocusTrap';
+import { enqueueRequest, isOfflineError } from '@/lib/offline-queue';
 
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
@@ -158,6 +159,23 @@ export default function TomaPedidoPage() {
       toastSuccess('Comanda enviada', 'La comanda fue procesada correctamente.');
       router.push('/mesero/salon');
     } catch (error) {
+      if (isOfflineError(error)) {
+        enqueueRequest({
+          url: '/api/mesero/pedido/detalle',
+          method: 'POST',
+          body: { pedidoId: params.id, items: carrito },
+          label: `Comanda pedido #${params.id}`,
+        });
+        setSendOpen(false);
+        setCarrito([]);
+        toastInfo(
+          'Sin conexión',
+          'La comanda quedó en cola y se enviará al recuperar el Wi-Fi.'
+        );
+        router.push('/mesero/salon');
+        return;
+      }
+
       toastError(
         'No se pudo registrar la comanda',
         getErrorMessage(error, 'Intenta nuevamente en unos segundos.')

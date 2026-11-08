@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/Toast";
 import ErrorReporter from "@/components/error-reporter";
+import ServiceWorkerRegistration from "@/components/service-worker-registration";
+import OfflineSync from "@/components/offline-sync";
+import Providers from "@/components/providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,9 +44,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
         <Toaster />
         <ErrorReporter />
+        <ServiceWorkerRegistration />
+        <OfflineSync />
       </body>
     </html>
   );

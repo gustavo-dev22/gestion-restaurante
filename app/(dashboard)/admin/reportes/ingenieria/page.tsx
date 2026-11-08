@@ -1,5 +1,6 @@
 import { Puzzle, Star, Trash2, Zap } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ServerPagination } from "@/components/ui/ServerPagination";
 import { DataTable } from "@/components/ui/DataTable";
 import { getIngenieriaReportCached } from "@/lib/reports";
 import { formatCurrency } from "@/lib/utils";
@@ -32,8 +33,14 @@ function getColor(categoria: string) {
   }
 }
 
-export default async function IngenieriaMenuPage() {
-  const reporte = await getIngenieriaReportCached();
+export default async function IngenieriaMenuPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = Number(params?.page) || 1;
+  const reporte = await getIngenieriaReportCached(page);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -52,7 +59,7 @@ export default async function IngenieriaMenuPage() {
               </span>
             </div>
             <p className="text-2xl font-black text-slate-800">
-              {reporte.matriz.filter((item) => item.clasificacion === categoria).length}
+              {reporte.conteos[categoria] ?? 0}
             </p>
             <p className="mt-1 text-xs font-bold uppercase text-slate-600">Platos identificados</p>
           </div>
@@ -97,6 +104,11 @@ export default async function IngenieriaMenuPage() {
             ))}
           </tbody>
         </DataTable>
+        <ServerPagination
+          page={reporte.page}
+          totalPages={reporte.totalPages}
+          basePath="/admin/reportes/ingenieria"
+        />
       </div>
     </div>
   );

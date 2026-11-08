@@ -1,15 +1,24 @@
 import { Award, Medal, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/DataTable";
+import { ServerPagination } from "@/components/ui/ServerPagination";
 import { getPersonalReportCached } from "@/lib/reports";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function DesempenoPersonalPage() {
-  const ranking = await getPersonalReportCached();
+export default async function DesempenoPersonalPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = Number(params?.page) || 1;
+  const reporte = await getPersonalReportCached(page);
+  const ranking = reporte.ranking;
+  const mejor = reporte.mejor;
 
-  if (ranking.length === 0) {
+  if (reporte.total === 0 || !mejor) {
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <PageHeader
@@ -20,8 +29,6 @@ export default async function DesempenoPersonalPage() {
       </div>
     );
   }
-
-  const mejor = ranking[0];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -110,6 +117,14 @@ export default async function DesempenoPersonalPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <ServerPagination
+          page={reporte.page}
+          totalPages={reporte.totalPages}
+          basePath="/admin/reportes/personal"
+        />
       </div>
     </div>
   );

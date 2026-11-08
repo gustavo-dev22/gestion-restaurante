@@ -1,6 +1,22 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getPeruHour } from "@/lib/utils";
+import { CACHE_REVALIDATE_SECONDS, CACHE_TAGS } from "@/lib/cache-config";
+
+const PAGE_SIZE = 10;
+
+function paginate<T>(items: T[], page: number, pageSize = PAGE_SIZE) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const current = Math.min(Math.max(page, 1), totalPages);
+  return {
+    items: items.slice((current - 1) * pageSize, current * pageSize),
+    total,
+    page: current,
+    pageSize,
+    totalPages,
+  };
+}
 
 // ---------- Horas pico ----------
 export interface HoraPicoItem {
@@ -57,9 +73,14 @@ export interface IngenieriaItem {
 export interface IngenieriaReport {
   matriz: IngenieriaItem[];
   promedioVentas: string;
+  conteos: Record<string, number>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
-export async function getIngenieriaReport(): Promise<IngenieriaReport> {
+export async function getIngenieriaReport(page = 1): Promise<IngenieriaReport> {
   const ventas = await prisma.pedidoDetalle.groupBy({
     by: ["productoId"],
     where: { pedido: { estado: { notIn: ["Expirado"] } } },
@@ -73,7 +94,7 @@ export async function getIngenieriaReport(): Promise<IngenieriaReport> {
   const totalVendido = ventas.reduce((acc, venta) => acc + (venta._sum.cantidad ?? 0), 0);
   const promedioVentas = productos.length > 0 ? totalVendido / productos.length : 0;
 
-  const matriz = productos.map((producto) => {
+  const matrizCompleta = productos.map((producto) => {
     const venta = ventas.find((item) => item.productoId === producto.id);
     const cantidad = venta?._sum.cantidad ?? 0;
     const precio = Number(producto.precio);
@@ -95,7 +116,25 @@ export async function getIngenieriaReport(): Promise<IngenieriaReport> {
     };
   });
 
-  return { matriz, promedioVentas: promedioVentas.toFixed(2) };
+  const conteos = matrizCompleta.reduce<Record<string, number>>((acc, item) => {
+    acc[item.clasificacion] = (acc[item.clasificacion] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const { items, total, page: current, pageSize, totalPages } = paginate(
+    matrizCompleta,
+    page
+  );
+
+  return {
+    matriz: items,
+    promedioVentas: promedioVentas.toFixed(2),
+    conteos,
+    total,
+    page: current,
+    pageSize,
+    totalPages,
+  };
 }
 
 // ---------- Inventario ----------
@@ -109,10 +148,14 @@ export interface InventarioCritico {
 export interface InventarioReport {
   critico: InventarioCritico[];
   resumen: { totalProductosCriticos: number; valorizacionBodega: string };
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
-export async function getInventarioReport(): Promise<InventarioReport> {
-  const critico = await prisma.producto.findMany({
+export async function getInventarioReport(page = 1): Promise<InventarioReport> {
+  const criticoCompleto = await prisma.producto.findMany({
     where: { stock: { lte: 10 } },
     select: {
       id: true,
@@ -132,12 +175,21 @@ export async function getInventarioReport(): Promise<InventarioReport> {
     return acc + Number(producto.stock ?? 0) * costoSimulado;
   }, 0);
 
+  const { items, total, page: current, pageSize, totalPages } = paginate(
+    criticoCompleto,
+    page
+  );
+
   return {
-    critico,
+    critico: items,
     resumen: {
-      totalProductosCriticos: critico.length,
+      totalProductosCriticos: criticoCompleto.length,
       valorizacionBodega: valorizacion.toFixed(2),
     },
+    total,
+    page: current,
+    pageSize,
+    totalPages,
   };
 }
 
@@ -150,7 +202,16 @@ export interface PersonalRankingItem {
   ticketPromedio: string;
 }
 
-export async function getPersonalReport(): Promise<PersonalRankingItem[]> {
+export interface PersonalReport {
+  ranking: PersonalRankingItem[];
+  mejor: PersonalRankingItem | null;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function getPersonalReport(page = 1): Promise<PersonalReport> {
   const estadisticas = await prisma.pedido.groupBy({
     by: ["usuarioId", "nombreMesero"],
     _sum: { total: true },
@@ -158,7 +219,7 @@ export async function getPersonalReport(): Promise<PersonalRankingItem[]> {
     where: { estado: "Pagado", NOT: { usuarioId: null } },
   });
 
-  return estadisticas
+  const rankingCompleto = estadisticas
     .map((item) => {
       const total = Number(item._sum.total ?? 0);
       const pedidos = item._count.id ?? 0;
@@ -171,6 +232,20 @@ export async function getPersonalReport(): Promise<PersonalRankingItem[]> {
       };
     })
     .sort((a, b) => b.total - a.total);
+
+  const { items, total, page: current, pageSize, totalPages } = paginate(
+    rankingCompleto,
+    page
+  );
+
+  return {
+    ranking: items,
+    mejor: rankingCompleto[0] ?? null,
+    total,
+    page: current,
+    pageSize,
+    totalPages,
+  };
 }
 
 // ---------- Dashboard ----------
@@ -201,35 +276,37 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   };
 }
 
-// ---------- Versiones cacheadas para Server Components ----------
-const CACHE_OPTIONS = { revalidate: 30, tags: ["reportes"] };
+// ---------- Cache wrappers (preparados para use cache/cacheLife) ----------
+const cacheOptions = {
+  revalidate: CACHE_REVALIDATE_SECONDS,
+  tags: [CACHE_TAGS.reports],
+};
 
 export const getHorasPicoReportCached = unstable_cache(
   getHorasPicoReport,
   ["reporte-horas-pico"],
-  CACHE_OPTIONS
+  cacheOptions
 );
 
 export const getIngenieriaReportCached = unstable_cache(
   getIngenieriaReport,
   ["reporte-ingenieria"],
-  CACHE_OPTIONS
+  cacheOptions
 );
 
 export const getInventarioReportCached = unstable_cache(
   getInventarioReport,
   ["reporte-inventario"],
-  CACHE_OPTIONS
+  cacheOptions
 );
 
 export const getPersonalReportCached = unstable_cache(
   getPersonalReport,
   ["reporte-personal"],
-  CACHE_OPTIONS
+  cacheOptions
 );
 
-export const getDashboardStatsCached = unstable_cache(
-  getDashboardStats,
-  ["dashboard-stats"],
-  { ...CACHE_OPTIONS, tags: ["dashboard", "reportes"] }
-);
+export const getDashboardStatsCached = unstable_cache(getDashboardStats, ["dashboard-stats"], {
+  revalidate: CACHE_REVALIDATE_SECONDS,
+  tags: [CACHE_TAGS.dashboard, CACHE_TAGS.reports],
+});
