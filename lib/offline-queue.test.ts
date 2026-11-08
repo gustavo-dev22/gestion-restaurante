@@ -40,15 +40,25 @@ describe("offline queue", () => {
     expect(getQueue()).toHaveLength(0);
   });
 
-  it("sincroniza y elimina al recibir 2xx", async () => {
-    enqueueRequest({ url: "/api/test", method: "POST", body: { ok: true } });
-    vi.stubGlobal("fetch", vi.fn(() => mockResponse(200)));
+  it("sincroniza, envía la clave de idempotencia y elimina al recibir 2xx", async () => {
+    enqueueRequest({
+      url: "/api/test",
+      method: "POST",
+      body: { ok: true },
+      idempotencyKey: "test-key-123",
+    });
+    const fetchMock = vi.fn(() => mockResponse(200));
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await flushOfflineQueue();
 
     expect(result.sent).toBe(1);
     expect(result.failed).toBe(0);
     expect(getQueue()).toHaveLength(0);
+
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const init = calls[0][1];
+    expect((init.headers as Record<string, string>)["X-Idempotency-Key"]).toBe("test-key-123");
   });
 
   it("descarta errores de negocio (409) y conserva errores 5xx", async () => {

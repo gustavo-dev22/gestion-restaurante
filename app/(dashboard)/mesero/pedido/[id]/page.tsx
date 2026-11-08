@@ -12,6 +12,7 @@ import { http, getErrorMessage } from '@/lib/http';
 import { formatCurrency } from '@/lib/utils';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import { enqueueRequest, isOfflineError } from '@/lib/offline-queue';
+import { generateIdempotencyKey } from '@/lib/idempotency-key';
 
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
@@ -151,9 +152,14 @@ export default function TomaPedidoPage() {
   };
 
   const guardarComanda = async () => {
+    const idempotencyKey = generateIdempotencyKey();
     setSending(true);
     try {
-      await http.post('/api/mesero/pedido/detalle', { pedidoId: params.id, items: carrito });
+      await http.post(
+        '/api/mesero/pedido/detalle',
+        { pedidoId: params.id, items: carrito },
+        { idempotencyKey }
+      );
 
       setSendOpen(false);
       toastSuccess('Comanda enviada', 'La comanda fue procesada correctamente.');
@@ -165,6 +171,7 @@ export default function TomaPedidoPage() {
           method: 'POST',
           body: { pedidoId: params.id, items: carrito },
           label: `Comanda pedido #${params.id}`,
+          idempotencyKey,
         });
         setSendOpen(false);
         setCarrito([]);

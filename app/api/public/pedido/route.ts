@@ -5,6 +5,7 @@ import { getClientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 import { calcularTotalPedido } from '@/lib/order-math';
 import { logger } from '@/lib/logger';
 import { revalidateTag } from 'next/cache';
+import { withIdempotency } from '@/lib/idempotency';
 
 const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
 
@@ -48,6 +49,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  return withIdempotency(request, async () => {
   try {
     const limit = rateLimit(`public:pedido:${getClientIp(request)}`, 10, 60_000);
     if (!limit.ok) {
@@ -173,4 +175,5 @@ export async function POST(request: Request) {
     logger.error('Error al procesar pedido QR', { error });
     return NextResponse.json({ error: 'Error al procesar pedido' }, { status: 500 });
   }
+  });
 }

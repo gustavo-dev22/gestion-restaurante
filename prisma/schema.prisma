@@ -92,3 +92,15 @@ model Reserva {
 
   @@map("Reservas")
 }
+
+model IdempotencyKey {
+  id        String   @id @db.NVarChar(64)
+  key       String   @unique @db.NVarChar(100)
+  status    Int      @default(0)
+  response  String?  @db.NVarChar(Max)
+  createdAt DateTime @default(now()) @db.DateTime2
+  expiresAt DateTime @db.DateTime2
+
+  @@index([expiresAt])
+  @@map("Idempotency_Keys")
+}

@@ -1,4 +1,5 @@
 import { HttpError } from "@/lib/http";
+import { generateIdempotencyKey } from "@/lib/idempotency-key";
 
 const STORAGE_KEY = "gr-offline-queue";
 const MAX_ITEMS = 50;
@@ -9,6 +10,7 @@ export interface QueuedRequest {
   method: string;
   body?: unknown;
   label?: string;
+  idempotencyKey: string;
   createdAt: number;
 }
 
@@ -38,10 +40,13 @@ export function getQueue(): QueuedRequest[] {
 }
 
 export function enqueueRequest(
-  request: Omit<QueuedRequest, "id" | "createdAt">
+  request: Omit<QueuedRequest, "id" | "createdAt" | "idempotencyKey"> & {
+    idempotencyKey?: string;
+  }
 ): QueuedRequest {
   const item: QueuedRequest = {
     ...request,
+    idempotencyKey: request.idempotencyKey || generateIdempotencyKey(),
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
   };
@@ -80,7 +85,10 @@ export async function flushOfflineQueue(): Promise<{
       try {
         const response = await fetch(item.url, {
           method: item.method,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Idempotency-Key": item.idempotencyKey || generateIdempotencyKey(),
+          },
           body: item.body === undefined ? undefined : JSON.stringify(item.body),
         });
 
@@ -96,7 +104,7 @@ export async function flushOfflineQueue(): Promise<{
           errors.push("Tu sesión expiró. Inicia sesión para enviar las comandas pendientes.");
           continue;
         }
-        if (response.status === 429 || response.status >= 500) {
+        if (response.status === 425 || response.status === 429 || response.status >= 500) {
           failed += 1;
           errors.push("El servidor no está disponible. Se reintentará al reconectar.");
           continue;

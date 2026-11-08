@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 import { revalidateTag } from "next/cache";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(request: Request) {
+  return withIdempotency(request, async () => {
   try {
     const session = await getSessionFromRequest(request);
     if (!session) {
@@ -142,4 +144,5 @@ export async function POST(request: Request) {
     logger.error("Error al procesar comanda", { error });
     return NextResponse.json({ error: "Error al procesar la comanda" }, { status: 500 });
   }
+  });
 }

@@ -55,12 +55,13 @@ async function createToken(payload) {
   return `${unsigned}.${b64(new Uint8Array(signature))}`;
 }
 
-async function api(path, { method = "GET", body, token } = {}) {
+async function api(path, { method = "GET", body, token, idempotencyKey } = {}) {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Cookie: `gr_session=${token}` } : {}),
+      ...(idempotencyKey ? { "X-Idempotency-Key": idempotencyKey } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     redirect: "manual",
@@ -107,7 +108,7 @@ async function main() {
   let productoId = null;
   let pedidoId = null;
   let llamadoId = null;
-  let stockDescontado = 0;
+  let stockRestore = null;
 
   try {
     // 1) Público y sesión
@@ -144,6 +145,7 @@ async function main() {
     mesaId = mesasLibres[0].id;
     productoId = producto.id;
     const stockInicial = Number(producto.stock);
+    stockRestore = stockInicial;
 
     const stockFail = await api("/api/public/pedido", {
       method: "POST",
@@ -164,7 +166,6 @@ async function main() {
       body: { mesaId, items: [{ id: productoId, cantidad: 1 }] },
     });
     pedidoId = creado.data?.id ?? null;
-    stockDescontado = 1;
     check("Pedido QR creado (200)", creado.status === 200 && Boolean(pedidoId));
 
     const confirmado = await api("/api/mesero/confirmar", {
@@ -173,6 +174,43 @@ async function main() {
       body: { pedidoId },
     });
     check("Pedido confirmado (Pendiente)", confirmado.status === 200 && confirmado.data?.estado === "Pendiente");
+
+    // 4.1) Idempotencia de comanda: el mismo key no debe duplicar stock ni cantidades
+    const claveIdempotencia = `smoke-${Date.now()}`;
+    const comandaPayload = { pedidoId, items: [{ id: productoId, cantidad: 1 }] };
+    const stockAntesComanda = Number(
+      (await prisma.producto.findUnique({ where: { id: productoId } }))?.stock ?? 0
+    );
+
+    const comanda1 = await api("/api/mesero/pedido/detalle", {
+      method: "POST",
+      token: adminToken,
+      body: comandaPayload,
+      idempotencyKey: claveIdempotencia,
+    });
+    const comanda2 = await api("/api/mesero/pedido/detalle", {
+      method: "POST",
+      token: adminToken,
+      body: comandaPayload,
+      idempotencyKey: claveIdempotencia,
+    });
+
+    const stockTrasComandas = Number(
+      (await prisma.producto.findUnique({ where: { id: productoId } }))?.stock ?? 0
+    );
+    const detalleProducto = await prisma.pedidoDetalle.findFirst({
+      where: { pedidoId, productoId },
+    });
+
+    check(
+      "Idempotencia: misma clave no duplica stock ni cantidades",
+      comanda1.status === 200 &&
+        comanda2.status === 200 &&
+        JSON.stringify(comanda1.data) === JSON.stringify(comanda2.data) &&
+        stockTrasComandas === stockAntesComanda - 1 &&
+        detalleProducto?.cantidad === 2,
+      `stock=${stockAntesComanda}->${stockTrasComandas}, cantidad=${detalleProducto?.cantidad}`
+    );
 
     const detalle = await prisma.pedidoDetalle.findMany({
       where: { pedidoId },
@@ -237,9 +275,9 @@ async function main() {
       await prisma.pedidoDetalle.deleteMany({ where: { pedidoId } });
       await prisma.pedido.delete({ where: { id: pedidoId } }).catch(() => {});
     }
-    if (productoId && stockDescontado > 0) {
+    if (productoId && stockRestore !== null) {
       await prisma.producto
-        .updateMany({ where: { id: productoId }, data: { stock: { increment: stockDescontado } } })
+        .update({ where: { id: productoId }, data: { stock: stockRestore } })
         .catch(() => {});
     }
     if (mesaId) {

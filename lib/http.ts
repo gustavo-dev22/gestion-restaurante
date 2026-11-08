@@ -1,5 +1,6 @@
 import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
+import { generateIdempotencyKey } from "@/lib/idempotency-key";
 
 export class HttpError extends Error {
   status: number;
@@ -17,6 +18,8 @@ export interface HttpOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   timeoutMs?: number;
   skipAuthRedirect?: boolean;
+  /** Clave de idempotencia; en POST se genera una automáticamente. */
+  idempotencyKey?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -58,14 +61,25 @@ function extractMessage(data: unknown, status: number) {
 }
 
 export async function request<T>(input: string | URL, options: HttpOptions = {}): Promise<T> {
-  const { body, timeoutMs = DEFAULT_TIMEOUT_MS, skipAuthRedirect, headers, ...rest } = options;
+  const {
+    body,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    skipAuthRedirect,
+    idempotencyKey,
+    headers,
+    ...rest
+  } = options;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const method = String(rest.method ?? "GET").toUpperCase();
+  const finalIdempotencyKey =
+    idempotencyKey ?? (method === "POST" ? generateIdempotencyKey() : undefined);
   const finalHeaders: HeadersInit = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(finalIdempotencyKey ? { "X-Idempotency-Key": finalIdempotencyKey } : {}),
     ...(headers as Record<string, string> | undefined),
   };
 
