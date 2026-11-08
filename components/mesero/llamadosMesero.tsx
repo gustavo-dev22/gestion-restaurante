@@ -9,6 +9,8 @@ import { timeAgo } from "@/lib/utils";
 interface Llamado {
   id: number;
   fecha_creacion: string;
+  usuarioId: string | null;
+  nombreMesero: string | null;
   mesa: { id: number; numero: string };
 }
 
@@ -64,7 +66,12 @@ export default function LlamadosMesero() {
           >
             <div className="min-w-0">
               <p className="font-bold text-slate-800">Mesa {llamado.mesa.numero}</p>
-              <p className="text-xs text-slate-600">{timeAgo(llamado.fecha_creacion)}</p>
+              <p className="text-xs text-slate-600">
+                {timeAgo(llamado.fecha_creacion)}
+                {llamado.nombreMesero && llamado.nombreMesero !== "Sin asignar"
+                  ? ` · ${llamado.nombreMesero}`
+                  : " · Sin responsable"}
+              </p>
             </div>
             <button
               type="button"

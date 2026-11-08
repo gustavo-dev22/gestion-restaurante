@@ -61,6 +61,15 @@ export async function PATCH(request: Request) {
     }
 
     const pedidoActualizado = await prisma.pedido.findUnique({ where: { id } });
+
+    // Si la mesa tenía un llamado sin responsable, ahora se le asigna a este mesero.
+    if (pedidoActualizado) {
+      await prisma.pedido.updateMany({
+        where: { mesaId: pedidoActualizado.mesaId, estado: "Llamado", usuarioId: null },
+        data: { usuarioId: session.sub, nombreMesero: session.nombre },
+      });
+    }
+
     return NextResponse.json(pedidoActualizado);
   } catch (error) {
     console.error(error);
