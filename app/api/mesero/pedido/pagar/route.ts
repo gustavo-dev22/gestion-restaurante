@@ -78,9 +78,10 @@ export async function PATCH(request: Request) {
 
     await prisma.$transaction(async (tx) => {
       for (const linea of lineas) {
+        // 'subtotal' es una columna calculada en SQL Server: no se escribe.
         await tx.pedidoDetalle.update({
           where: { id: linea.id },
-          data: { precio_unitario: linea.precioReal, subtotal: linea.subtotal },
+          data: { precio_unitario: linea.precioReal },
         });
       }
 

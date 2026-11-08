@@ -73,15 +73,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // 'subtotal' es una columna calculada en SQL Server: nunca se escribe.
     const detalles = itemsNormalizados.map((item) => ({
       productoId: item.productoId,
       cantidad: item.cantidad,
       precio_unitario: precios.get(item.productoId) ?? 0,
-      subtotal: (precios.get(item.productoId) ?? 0) * item.cantidad,
       estado: 'Pendiente',
     }));
 
-    const total = detalles.reduce((acc, detalle) => acc + Number(detalle.subtotal), 0);
+    const total = itemsNormalizados.reduce(
+      (acc, item) => acc + (precios.get(item.productoId) ?? 0) * item.cantidad,
+      0
+    );
 
     const resultado = await prisma.$transaction(async (tx) => {
       const mesaActual = await tx.mesa.findUnique({ where: { id: mesaId } });

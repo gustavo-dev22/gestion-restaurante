@@ -86,18 +86,17 @@ export async function POST(request: Request) {
             data: {
               cantidad: nuevaCantidad,
               precio_unitario: precio,
-              subtotal: precio * nuevaCantidad,
               estado: "Pendiente",
             },
           });
         } else {
+          // 'subtotal' es una columna calculada en SQL Server: no se escribe.
           await tx.pedidoDetalle.create({
             data: {
               pedidoId,
               productoId: item.productoId,
               cantidad: item.cantidad,
               precio_unitario: precio,
-              subtotal,
               estado: "Pendiente",
             },
           });
