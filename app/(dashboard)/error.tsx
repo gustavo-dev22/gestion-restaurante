@@ -1,9 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportClientError } from "@/lib/logger";
+
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 export default function DashboardError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    reportClientError(error, { boundary: "dashboard", digest: error.digest });
+  }, [error]);
+
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-5 p-6 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-600">

@@ -14,10 +14,23 @@ import { toastSuccess, toastError, toastWarning } from "@/components/ui/Toast";
 import { http, HttpError } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 
+interface DetalleResumen {
+  id: number;
+  cantidad: number;
+  estado: string | null;
+  precio_unitario: number | string;
+  producto: { nombre: string };
+}
+
+interface PedidoResumen {
+  total: number | string;
+  mesa: { numero: string };
+  detalles: DetalleResumen[];
+}
 export default function ResumenPedido() {
   const params = useParams();
   const router = useRouter();
-  const [pedido, setPedido] = useState<any>(null);
+  const [pedido, setPedido] = useState<PedidoResumen | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -32,7 +45,7 @@ export default function ResumenPedido() {
     setLoading(true);
     setError(false);
     try {
-      const data = await http.get<any>(`/api/mesero/pedido/resumen?id=${params.id}`);
+      const data = await http.get<PedidoResumen>(`/api/mesero/pedido/resumen?id=${params.id}`);
       if (!data?.mesa) throw new Error();
       setPedido(data);
     } catch {
@@ -122,7 +135,7 @@ export default function ResumenPedido() {
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-600">Consumo actual</h2>
         <div className="space-y-4">
-          {pedido.detalles.map((det: any) => (
+          {pedido.detalles.map((det) => (
             <div key={det.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

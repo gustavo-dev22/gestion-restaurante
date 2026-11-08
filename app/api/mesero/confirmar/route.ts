@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { expireStaleQrOrders } from '@/lib/qr-orders';
+import { logger } from '@/lib/logger';
 
 export async function PATCH(request: Request) {
   try {
@@ -72,7 +73,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(pedidoActualizado);
   } catch (error) {
-    console.error(error);
+    logger.error('Error al confirmar pedido', { error });
     return NextResponse.json({ error: 'Error al asignar mesero' }, { status: 500 });
   }
 }

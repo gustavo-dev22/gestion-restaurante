@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/session";
 import { getHomePath, getRoleName, getSections, type AuthUserLike } from "@/lib/roles";
 import { sasiLoginRequest } from "@/lib/sasi";
+import { logger } from "@/lib/logger";
 
 const SYSTEM_ID = 13;
 
@@ -67,7 +68,8 @@ export async function POST(request: Request) {
     });
 
     return json;
-  } catch {
+  } catch (error) {
+    logger.error("Error de comunicación con SASI", { error });
     return NextResponse.json(
       { success: false, message: "Error de comunicación con SASI" },
       { status: 200 }

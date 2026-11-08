@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(ventas);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al obtener ventas' }, { status: 500 });
   }
 }

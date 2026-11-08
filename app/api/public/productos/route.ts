@@ -9,7 +9,7 @@ export async function GET() {
       orderBy: { nombre: 'asc' }
     });
     return NextResponse.json(productos);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al cargar productos' }, { status: 500 });
   }
 }

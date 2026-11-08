@@ -15,13 +15,28 @@ import { http } from "@/lib/http";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { useDebounce } from "@/lib/useDebounce";
 
+interface DetalleVenta {
+  id: number;
+  cantidad: number;
+  precio_unitario: number | string;
+  producto: { nombre: string };
+}
+
+interface Venta {
+  id: number;
+  total: number | string;
+  fecha_creacion: string;
+  metodoPago?: string | null;
+  mesa: { numero: string };
+  detalles: DetalleVenta[];
+}
 const ITEMS_PER_PAGE = 8;
 
 export default function VentasPage() {
-  const [ventas, setVentas] = useState<any[]>([]);
+  const [ventas, setVentas] = useState<Venta[]>([]);
   const [loading, setLoading] = useState(true);
   const [rango, setRango] = useState("hoy");
-  const [detalle, setDetalle] = useState<any | null>(null);
+  const [detalle, setDetalle] = useState<Venta | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const busquedaDebounced = useDebounce(busqueda, 300);
   const [page, setPage] = useState(1);
@@ -30,7 +45,7 @@ export default function VentasPage() {
     const fetchConFiltro = async () => {
       setLoading(true);
       try {
-        const data = await http.get<any[]>(`/api/admin/ventas?rango=${rango}`);
+        const data = await http.get<Venta[]>(`/api/admin/ventas?rango=${rango}`);
         setVentas(Array.isArray(data) ? data : []);
         setPage(1);
       } catch {
@@ -238,7 +253,7 @@ export default function VentasPage() {
             )}
 
             <div className="space-y-2 border-t border-dashed border-slate-200 pt-3">
-              {detalle.detalles.map((item: any) => (
+              {detalle.detalles.map((item) => (
                 <div key={item.id} className="flex justify-between gap-3 text-sm">
                   <span className="text-slate-700">
                     {item.cantidad} x {item.producto.nombre}

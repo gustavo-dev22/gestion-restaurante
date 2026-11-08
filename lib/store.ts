@@ -1,11 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { AuthUserLike } from "@/lib/roles";
 
 interface AuthState {
-  user: any | null;
+  user: AuthUserLike | null;
   isAuthenticated: boolean;
   hasHydrated: boolean;
-  setAuth: (user: any) => void;
+  setAuth: (user: AuthUserLike) => void;
   setHasHydrated: (state: boolean) => void;
   logout: () => void;
 }

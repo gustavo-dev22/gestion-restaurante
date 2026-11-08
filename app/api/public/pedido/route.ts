@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { expireStaleQrOrders } from '@/lib/qr-orders';
 import { getClientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
+import { calcularTotalPedido } from '@/lib/order-math';
+import { logger } from '@/lib/logger';
+import { revalidateTag } from 'next/cache';
 
 const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
 
@@ -95,7 +98,6 @@ export async function POST(request: Request) {
         precio_unitario: number;
         estado: string;
       }> = [];
-      let total = 0;
 
       for (const item of itemsNormalizados) {
         const producto = await tx.producto.findUnique({
@@ -123,7 +125,6 @@ export async function POST(request: Request) {
         }
 
         const precio = Number(producto.precio);
-        total += precio * item.cantidad;
         detalles.push({
           productoId: item.productoId,
           cantidad: item.cantidad,
@@ -131,6 +132,13 @@ export async function POST(request: Request) {
           estado: 'Pendiente',
         });
       }
+
+      const total = calcularTotalPedido(
+        detalles.map((detalle) => ({
+          precio: detalle.precio_unitario,
+          cantidad: detalle.cantidad,
+        }))
+      );
 
       return tx.pedido.create({
         data: {
@@ -144,6 +152,9 @@ export async function POST(request: Request) {
         include: { detalles: true },
       });
     });
+
+    revalidateTag("reportes", "max");
+    revalidateTag("dashboard", "max");
 
     return NextResponse.json(resultado);
   } catch (error) {
@@ -159,7 +170,7 @@ export async function POST(request: Request) {
     if (error instanceof ProductoInvalidoError) {
       return NextResponse.json({ error: 'PRODUCTO_INVALIDO', message: error.message }, { status: 400 });
     }
-    console.error('ERROR PEDIDO PUBLICO:', error);
+    logger.error('Error al procesar pedido QR', { error });
     return NextResponse.json({ error: 'Error al procesar pedido' }, { status: 500 });
   }
 }

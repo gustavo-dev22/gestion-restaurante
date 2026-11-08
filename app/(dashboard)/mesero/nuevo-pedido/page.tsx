@@ -7,8 +7,15 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { toastError } from '@/components/ui/Toast';
 import { http, getErrorMessage } from '@/lib/http';
 
+interface MesaLibre {
+  id: number;
+  numero: string;
+  estado: string;
+  zona: string;
+  capacidad: number;
+}
 export default function NuevoPedidoQuickPage() {
-  const [mesasLibres, setMesasLibres] = useState<any[]>([]);
+  const [mesasLibres, setMesasLibres] = useState<MesaLibre[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingId, setOpeningId] = useState<number | null>(null);
   const router = useRouter();
@@ -17,7 +24,7 @@ export default function NuevoPedidoQuickPage() {
 
   useEffect(() => {
     http
-      .get<any[]>('/api/mesas')
+      .get<MesaLibre[]>('/api/mesas')
       .then((data) => {
         setMesasLibres(data.filter((mesa) => mesa.estado === 'Libre'));
       })

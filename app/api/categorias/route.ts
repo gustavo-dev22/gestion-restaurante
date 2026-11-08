@@ -8,7 +8,7 @@ export async function GET() {
       orderBy: { id: 'asc' }
     });
     return NextResponse.json(categorias);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al consultar BD' }, { status: 500 });
   }
 }
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(nueva);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al crear categoría:", error);
     return NextResponse.json({ error: 'Error al insertar en la base de datos' }, { status: 500 });
   }
@@ -61,7 +61,7 @@ export async function PATCH(request: Request) {
     });
 
     return NextResponse.json(actualizada);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al actualizar categoría:", error);
     return NextResponse.json({ error: 'No se pudo actualizar en SQL Server' }, { status: 500 });
   }
@@ -91,7 +91,7 @@ export async function DELETE(request: Request) {
     });
 
     return NextResponse.json({ success: true, message: 'Categoría desactivada correctamente' });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ success: false, message: 'Error interno del servidor' });
   }
 }

@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/lib/store";
+import { logger } from "@/lib/logger";
 
 export class HttpError extends Error {
   status: number;
@@ -78,8 +79,10 @@ export async function request<T>(input: string | URL, options: HttpOptions = {})
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      logger.error("Timeout de solicitud HTTP", { url: String(input) });
       throw new HttpError(TIMEOUT_MESSAGE, 0);
     }
+    logger.error("Error de red HTTP", { url: String(input), error });
     throw new HttpError(NETWORK_MESSAGE, 0);
   } finally {
     clearTimeout(timeout);
@@ -101,6 +104,9 @@ export async function request<T>(input: string | URL, options: HttpOptions = {})
   }
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      logger.error("Error del servidor HTTP", { url: String(input), status: response.status });
+    }
     throw new HttpError(extractMessage(data, response.status), response.status, data);
   }
 

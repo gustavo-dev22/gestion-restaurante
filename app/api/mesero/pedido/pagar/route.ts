@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromRequest } from "@/lib/auth/session";
+import { calcularTotalPedido } from "@/lib/order-math";
+import { logger } from "@/lib/logger";
+import { revalidateTag } from "next/cache";
 
 const METODOS_PAGO = ["Efectivo", "Tarjeta", "Yape/Plin"];
 
@@ -65,16 +68,17 @@ export async function PATCH(request: Request) {
     }
 
     // Recálculo estricto usando los precios reales de la base de datos.
-    const lineas = pedido.detalles.map((detalle) => {
-      const precioReal = Number(detalle.producto.precio);
-      return {
-        id: detalle.id,
-        precioReal,
-        subtotal: precioReal * detalle.cantidad,
-      };
-    });
+    const lineas = pedido.detalles.map((detalle) => ({
+      id: detalle.id,
+      precioReal: Number(detalle.producto.precio),
+    }));
 
-    const totalReal = lineas.reduce((acc, linea) => acc + linea.subtotal, 0);
+    const totalReal = calcularTotalPedido(
+      pedido.detalles.map((detalle) => ({
+        precio: Number(detalle.producto.precio),
+        cantidad: detalle.cantidad,
+      }))
+    );
 
     await prisma.$transaction(async (tx) => {
       for (const linea of lineas) {
@@ -96,13 +100,16 @@ export async function PATCH(request: Request) {
       });
     });
 
+    revalidateTag("reportes", "max");
+    revalidateTag("dashboard", "max");
+
     return NextResponse.json({
       message: "Pago procesado y mesa liberada",
       total: totalReal,
       metodoPago,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("Error al procesar pago", { error });
     return NextResponse.json({ error: "Error al procesar el pago" }, { status: 500 });
   }
 }

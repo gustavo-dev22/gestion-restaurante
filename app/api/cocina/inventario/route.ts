@@ -9,7 +9,7 @@ export async function GET() {
       orderBy: { categoriaId: 'asc' }
     });
     return NextResponse.json(productos);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al obtener inventario' }, { status: 500 });
   }
 }
@@ -23,7 +23,7 @@ export async function PATCH(request: Request) {
       data: { activo: Boolean(activo) }
     });
     return NextResponse.json(actualizado);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al actualizar estado' }, { status: 500 });
   }
 }

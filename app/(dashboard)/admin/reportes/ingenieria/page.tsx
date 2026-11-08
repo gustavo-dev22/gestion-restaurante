@@ -1,117 +1,97 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { Star, Zap, Puzzle, Trash2 } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { http } from '@/lib/http';
-import { formatCurrency } from '@/lib/utils';
-import { DataTable } from '@/components/ui/DataTable';
+import { Puzzle, Star, Trash2, Zap } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DataTable } from "@/components/ui/DataTable";
+import { getIngenieriaReportCached } from "@/lib/reports";
+import { formatCurrency } from "@/lib/utils";
 
-export default function IngenieriaMenuPage() {
-  const [reporte, setReporte] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+export const dynamic = "force-dynamic";
 
-  const fetchReporte = async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const data = await http.get<any>('/api/admin/reportes/ingenieria');
-      if (!Array.isArray(data?.matriz)) throw new Error('Datos incompletos');
-      setReporte(data);
-    } catch {
-      setReporte(null);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReporte();
-  }, []);
-
-  const getIcon = (cat: string) => {
-    switch(cat) {
-      case 'ESTRELLA': return <Star className="text-amber-500" />;
-      case 'CABALLO': return <Zap className="text-blue-500" />;
-      case 'ROMPECABEZAS': return <Puzzle className="text-purple-500" />;
-      default: return <Trash2 className="text-slate-600" />;
-    }
-  };
-
-  const getColor = (cat: string) => {
-    switch(cat) {
-      case 'ESTRELLA': return 'bg-amber-50 border-amber-200';
-      case 'CABALLO': return 'bg-blue-50 border-blue-200';
-      case 'ROMPECABEZAS': return 'bg-purple-50 border-purple-200';
-      default: return 'bg-slate-50 border-slate-200';
-    }
-  };
-
-  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-600">Analizando rentabilidad...</span></div>;
-
-  if (error || !reporte) {
-    return (
-      <div className="p-10 flex flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-slate-700">No se pudo cargar el reporte</p>
-        <p className="text-slate-500">Intenta nuevamente en unos segundos.</p>
-        <button onClick={fetchReporte} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">Reintentar</button>
-      </div>
-    );
+function getIcon(categoria: string) {
+  switch (categoria) {
+    case "ESTRELLA":
+      return <Star className="text-amber-500" aria-hidden="true" />;
+    case "CABALLO":
+      return <Zap className="text-blue-500" aria-hidden="true" />;
+    case "ROMPECABEZAS":
+      return <Puzzle className="text-purple-500" aria-hidden="true" />;
+    default:
+      return <Trash2 className="text-slate-400" aria-hidden="true" />;
   }
+}
+
+function getColor(categoria: string) {
+  switch (categoria) {
+    case "ESTRELLA":
+      return "bg-amber-50 border-amber-200";
+    case "CABALLO":
+      return "bg-blue-50 border-blue-200";
+    case "ROMPECABEZAS":
+      return "bg-purple-50 border-purple-200";
+    default:
+      return "bg-slate-50 border-slate-200";
+  }
+}
+
+export default async function IngenieriaMenuPage() {
+  const reporte = await getIngenieriaReportCached();
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Ingeniería de Menú"
         description="Análisis de popularidad vs rentabilidad (Matriz Boston)"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        {['ESTRELLA', 'CABALLO', 'ROMPECABEZAS', 'PERRO'].map(cat => (
-          <div key={cat} className={`p-6 rounded-[2rem] border-2 ${getColor(cat)}`}>
-            <div className="flex items-center gap-3 mb-2">
-              {getIcon(cat)}
-              <span className="font-black text-xs uppercase tracking-widest text-slate-700">{cat}S</span>
+      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {["ESTRELLA", "CABALLO", "ROMPECABEZAS", "PERRO"].map((categoria) => (
+          <div key={categoria} className={`rounded-2xl border-2 p-6 ${getColor(categoria)}`}>
+            <div className="mb-2 flex items-center gap-3">
+              {getIcon(categoria)}
+              <span className="text-xs font-black uppercase tracking-widest text-slate-700">
+                {categoria}S
+              </span>
             </div>
             <p className="text-2xl font-black text-slate-800">
-                {reporte.matriz.filter((p:any) => p.clasificacion === cat).length}
+              {reporte.matriz.filter((item) => item.clasificacion === categoria).length}
             </p>
-            <p className="text-xs text-slate-500 mt-1 uppercase font-bold">Platos identificados</p>
+            <p className="mt-1 text-xs font-bold uppercase text-slate-600">Platos identificados</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <DataTable>
-          <thead className="bg-slate-50 border-b-2 border-slate-100">
+          <caption className="sr-only">Clasificación de platos por popularidad y rentabilidad</caption>
+          <thead className="border-b-2 border-slate-100 bg-slate-50">
             <tr>
               <th className="p-6 text-xs font-black uppercase text-slate-600">Plato</th>
-              <th className="p-6 text-xs font-black uppercase text-slate-600 text-center">Ventas (Cant)</th>
-              <th className="p-6 text-xs font-black uppercase text-slate-600 text-center">Margen Est.</th>
+              <th className="p-6 text-center text-xs font-black uppercase text-slate-600">Ventas (Cant)</th>
+              <th className="p-6 text-center text-xs font-black uppercase text-slate-600">Margen Est.</th>
               <th className="p-6 text-xs font-black uppercase text-slate-600">Clasificación</th>
               <th className="p-6 text-xs font-black uppercase text-slate-600">Acción Sugerida</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {reporte.matriz.map((p: any) => (
-              <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-6 font-bold text-slate-700">{p.nombre}</td>
-                <td className="p-6 text-center font-mono font-bold text-slate-500">{p.cantidad}</td>
-                <td className="p-6 text-center text-emerald-600 font-black">{formatCurrency(p.margen)}</td>
-                <td className="p-6">
-                   <div className="flex items-center gap-2">
-                     {getIcon(p.clasificacion)}
-                     <span className="text-xs font-black">{p.clasificacion}</span>
-                   </div>
+            {reporte.matriz.map((plato) => (
+              <tr key={plato.id} className="transition-colors hover:bg-slate-50">
+                <td className="p-6 font-bold text-slate-700">{plato.nombre}</td>
+                <td className="p-6 text-center font-mono font-bold text-slate-500">{plato.cantidad}</td>
+                <td className="p-6 text-center font-black text-emerald-600">
+                  {formatCurrency(plato.margen)}
                 </td>
                 <td className="p-6">
-                    <span className="text-xs bg-white border border-slate-200 px-3 py-1 rounded-full font-bold text-slate-500">
-                        {p.clasificacion === 'ESTRELLA' && "Promocionar más"}
-                        {p.clasificacion === 'CABALLO' && "Revisar costos/receta"}
-                        {p.clasificacion === 'ROMPECABEZAS' && "Mejorar visibilidad"}
-                        {p.clasificacion === 'PERRO' && "Evaluar retiro"}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    {getIcon(plato.clasificacion)}
+                    <span className="text-xs font-black">{plato.clasificacion}</span>
+                  </div>
+                </td>
+                <td className="p-6">
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-600">
+                    {plato.clasificacion === "ESTRELLA" && "Promocionar más"}
+                    {plato.clasificacion === "CABALLO" && "Revisar costos/receta"}
+                    {plato.clasificacion === "ROMPECABEZAS" && "Mejorar visibilidad"}
+                    {plato.clasificacion === "PERRO" && "Evaluar retiro"}
+                  </span>
                 </td>
               </tr>
             ))}

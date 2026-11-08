@@ -6,6 +6,7 @@ import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { getHomePath, type AuthUserLike } from "@/lib/roles";
 import { http } from "@/lib/http";
+import { validateLogin, type LoginErrors } from "@/lib/validation";
 import { Input } from "@/components/ui/Input";
 import { Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ username?: string; password?: string; form?: string }>({});
+  const [errors, setErrors] = useState<LoginErrors>({});
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const logout = useAuthStore((state) => state.logout);
@@ -42,9 +43,7 @@ export default function LoginPage() {
   }, [hasHydrated, isAuthenticated, user, router, logout]);
 
   const validate = () => {
-    const next: typeof errors = {};
-    if (!username.trim()) next.username = "Ingresa tu nombre de usuario.";
-    if (!password.trim()) next.password = "Ingresa tu contraseña.";
+    const next = validateLogin({ username, password });
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -64,6 +63,10 @@ export default function LoginPage() {
       }>("/api/auth/login", { username: username.trim(), password }, { skipAuthRedirect: true });
 
       if (data.success) {
+        if (!data.usuario) {
+          setErrors({ form: "Respuesta inválida del servidor." });
+          return;
+        }
         setAuth(data.usuario);
         router.replace(getHomePath(data.usuario));
       } else {

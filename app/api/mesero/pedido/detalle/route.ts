@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromRequest } from "@/lib/auth/session";
+import { logger } from "@/lib/logger";
+import { revalidateTag } from "next/cache";
 
 export async function POST(request: Request) {
   try {
@@ -118,6 +120,9 @@ export async function POST(request: Request) {
       });
     });
 
+    revalidateTag("reportes", "max");
+    revalidateTag("dashboard", "max");
+
     return NextResponse.json({ message: "Comanda registrada y stock actualizado" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -134,7 +139,7 @@ export async function POST(request: Request) {
     if (message.startsWith("PRODUCTO_INVALIDO")) {
       return NextResponse.json({ error: "PRODUCTO_INVALIDO", message: "Producto no disponible." }, { status: 400 });
     }
-    console.error(error);
+    logger.error("Error al procesar comanda", { error });
     return NextResponse.json({ error: "Error al procesar la comanda" }, { status: 500 });
   }
 }

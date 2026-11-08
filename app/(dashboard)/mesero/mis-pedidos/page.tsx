@@ -9,8 +9,15 @@ import { TableSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { http } from '@/lib/http';
 
+interface PedidoActivo {
+  id: number;
+  total: number | string;
+  fecha_creacion: string;
+  mesa: { numero: string };
+  detalles: unknown[];
+}
 export default function MisPedidosPage() {
-  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [pedidos, setPedidos] = useState<PedidoActivo[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -24,7 +31,7 @@ export default function MisPedidosPage() {
 
     setLoading(true);
     try {
-      const data = await http.get<any[]>(`/api/mesero/pedidos-activos?usuarioId=${usuario.id}`);
+      const data = await http.get<PedidoActivo[]>(`/api/mesero/pedidos-activos?usuarioId=${usuario.id}`);
       if (Array.isArray(data)) setPedidos(data);
     } catch {
       setPedidos([]);

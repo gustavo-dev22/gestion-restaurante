@@ -23,7 +23,7 @@ export async function GET() {
     }));
 
     return NextResponse.json(resultado);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error' }, { status: 500 });
   }
 }
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       }
     });
     return NextResponse.json(nueva);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al crear mesa' }, { status: 500 });
   }
 }
@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
       }
     });
     return NextResponse.json(actualizada);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 });
   }
 }
@@ -86,7 +86,7 @@ export async function DELETE(request: Request) {
     });
     
     return NextResponse.json({ success: true, message: 'Mesa eliminada con éxito' });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ success: false, message: 'Error al intentar eliminar la mesa' });
   }
 }

@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_ORDER_STATES, QR_PENDING_TTL_MS } from "@/lib/order-config";
 
@@ -60,6 +61,10 @@ export async function expireStaleQrOrders(): Promise<number> {
         });
       }
     });
+  }
+
+  if (expirados > 0) {
+    revalidateTag("dashboard", "max");
   }
 
   return expirados;

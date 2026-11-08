@@ -4,14 +4,19 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Printer, Loader2, QrCode } from 'lucide-react';
 import { http } from '@/lib/http';
 
+interface MesaQR {
+  id: number;
+  numero: string;
+}
+
 export default function GenerarQRPage() {
-  const [mesas, setMesas] = useState<any[]>([]);
+  const [mesas, setMesas] = useState<MesaQR[]>([]);
   const [loading, setLoading] = useState(true);
   const [origen, setOrigen] = useState('');
 
   useEffect(() => {
     http
-      .get<any[]>('/api/mesas')
+      .get<MesaQR[]>('/api/mesas')
       .then((data) => {
         setOrigen(window.location.origin);
         setMesas(Array.isArray(data) ? data : []);

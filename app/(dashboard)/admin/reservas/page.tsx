@@ -14,10 +14,20 @@ import { http } from "@/lib/http";
 import { formatDateTime } from "@/lib/utils";
 import { useDebounce } from "@/lib/useDebounce";
 
+interface Reserva {
+  id: number;
+  mesaId: number;
+  clienteNombre: string;
+  clienteTelefono: string;
+  fechaReserva: string;
+  numPersonas: number;
+  estado: string;
+  mesa: { numero: string };
+}
 const ITEMS_PER_PAGE = 6;
 
 export default function GestionReservasPage() {
-  const [reservas, setReservas] = useState<any[]>([]);
+  const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<{ id: number; mesaId: number; estado: string } | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -27,7 +37,7 @@ export default function GestionReservasPage() {
 
   const fetchReservas = async () => {
     try {
-      const data = await http.get<any[]>("/api/admin/reservas");
+      const data = await http.get<Reserva[]>("/api/admin/reservas");
       setReservas(Array.isArray(data) ? data : []);
     } catch {
       setReservas([]);

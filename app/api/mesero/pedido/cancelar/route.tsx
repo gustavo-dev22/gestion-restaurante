@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth/session';
 
@@ -44,6 +45,8 @@ export async function DELETE(request: Request) {
         data: { estado: 'Libre' },
       }),
     ]);
+
+    revalidateTag('dashboard', "max");
 
     return NextResponse.json({ message: 'Mesa liberada' });
   } catch (error) {

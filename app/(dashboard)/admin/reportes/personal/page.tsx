@@ -1,121 +1,114 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { Medal, TrendingUp, Award } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { http } from '@/lib/http';
-import { formatCurrency } from '@/lib/utils';
-import { DataTable } from '@/components/ui/DataTable';
+import { Award, Medal, TrendingUp } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { DataTable } from "@/components/ui/DataTable";
+import { getPersonalReportCached } from "@/lib/reports";
+import { formatCurrency } from "@/lib/utils";
 
-export default function DesempenoPersonalPage() {
-  const [ranking, setRanking] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+export const dynamic = "force-dynamic";
 
-  const fetchRanking = async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const data = await http.get<any[]>('/api/admin/reportes/personal');
-      setRanking(Array.isArray(data) ? data : []);
-    } catch {
-      setRanking([]);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default async function DesempenoPersonalPage() {
+  const ranking = await getPersonalReportCached();
 
-  useEffect(() => {
-    fetchRanking();
-  }, []);
-
-  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-600">Cargando desempeño...</span></div>;
-
-  if (error) {
+  if (ranking.length === 0) {
     return (
-      <div className="p-10 flex flex-col items-center justify-center gap-4 text-center">
-        <p className="text-lg font-bold text-slate-700">No se pudo cargar el reporte</p>
-        <p className="text-slate-500">Intenta nuevamente en unos segundos.</p>
-        <button onClick={fetchRanking} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">Reintentar</button>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <PageHeader
+          title="Desempeño del Personal"
+          description="Ranking de productividad y eficiencia de ventas"
+        />
+        <p className="p-10 text-center font-bold text-slate-600">Sin datos de ventas aún.</p>
       </div>
     );
   }
 
-  if (ranking.length === 0) return <div className="p-10 text-center font-bold text-slate-600">Sin datos de ventas aún...</div>;
+  const mejor = ranking[0];
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="Desempeño del Personal"
         description="Ranking de productividad y eficiencia de ventas"
       />
 
-      {/* El Top 1 (Ganador) */}
-      <div className="bg-gradient-to-r from-amber-400 to-amber-600 p-1 rounded-[3rem] mb-12 shadow-2xl shadow-amber-200">
-        <div className="bg-white rounded-[2.8rem] p-8 flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center gap-6">
-                <div className="bg-amber-100 p-6 rounded-full">
-                    <Medal size={48} className="text-amber-500" />
-                </div>
-                <div>
-                    <span className="text-xs font-black text-amber-500 uppercase tracking-[0.2em]">Mejor Vendedor del Mes</span>
-                    <h2 className="text-4xl font-black text-slate-800 italic">{ranking[0].mesero}</h2>
-                </div>
+      <div className="mb-8 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-600 p-1 shadow-2xl shadow-amber-200">
+        <div className="flex flex-col items-center justify-between rounded-[1.4rem] bg-white p-8 md:flex-row">
+          <div className="flex items-center gap-6">
+            <div className="rounded-full bg-amber-100 p-6">
+              <Medal size={48} className="text-amber-500" aria-hidden="true" />
             </div>
-            <div className="mt-6 md:mt-0 text-right">
-                <p className="text-sm font-bold text-slate-600 uppercase">Venta Acumulada</p>
-                <p className="text-5xl font-black text-slate-900">{formatCurrency(ranking[0].total)}</p>
+            <div>
+              <span className="text-xs font-black uppercase tracking-[0.2em] text-amber-600">
+                Mejor Vendedor del Mes
+              </span>
+              <h2 className="text-4xl font-black italic text-slate-800">{mejor.mesero}</h2>
             </div>
+          </div>
+          <div className="mt-6 text-right md:mt-0">
+            <p className="text-sm font-bold uppercase text-slate-600">Venta Acumulada</p>
+            <p className="text-5xl font-black text-slate-900">{formatCurrency(mejor.total)}</p>
+          </div>
         </div>
       </div>
 
-      {/* Tabla de Ranking Completa */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white rounded-[3rem] border-2 border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-8 border-b border-slate-50">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                    <Award className="text-blue-600" /> Tabla de Clasificación
-                </h3>
-            </div>
-            <DataTable>
-                <thead className="bg-slate-50">
-                    <tr className="text-xs uppercase font-black text-slate-600">
-                        <th className="p-6">Pos.</th>
-                        <th className="p-6">Mesero</th>
-                        <th className="p-6 text-center">Pedidos</th>
-                        <th className="p-6 text-right">Total Soles</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                    {ranking.map((m, idx) => (
-                        <tr key={m.id} className="hover:bg-slate-50 transition-colors group">
-                            <td className="p-6 font-black text-slate-500 group-hover:text-blue-600 text-xl italic">#{idx + 1}</td>
-                            <td className="p-6 font-bold text-slate-700">{m.mesero}</td>
-                            <td className="p-6 text-center font-bold text-slate-500">{m.pedidos}</td>
-                            <td className="p-6 text-right font-black text-slate-800">{formatCurrency(m.total)}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </DataTable>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-slate-100 p-8">
+            <h3 className="flex items-center gap-2 font-bold text-slate-800">
+              <Award className="text-blue-600" aria-hidden="true" /> Tabla de Clasificación
+            </h3>
+          </div>
+          <DataTable>
+            <caption className="sr-only">Ranking de ventas por mesero</caption>
+            <thead className="bg-slate-50">
+              <tr className="text-xs font-black uppercase text-slate-600">
+                <th className="p-6">Pos.</th>
+                <th className="p-6">Mesero</th>
+                <th className="p-6 text-center">Pedidos</th>
+                <th className="p-6 text-right">Total Soles</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {ranking.map((mesero, index) => (
+                <tr key={mesero.id || mesero.mesero} className="group transition-colors hover:bg-slate-50">
+                  <td className="p-6 text-xl font-black italic text-slate-500 group-hover:text-blue-600">
+                    #{index + 1}
+                  </td>
+                  <td className="p-6 font-bold text-slate-700">{mesero.mesero}</td>
+                  <td className="p-6 text-center font-bold text-slate-500">{mesero.pedidos}</td>
+                  <td className="p-6 text-right font-black text-slate-800">
+                    {formatCurrency(mesero.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
         </div>
 
-        {/* Resumen de Eficiencia (Ticket Promedio) */}
         <div className="space-y-6">
-            <h3 className="font-bold text-slate-800 px-4">Calidad de Venta (Ticket Promedio)</h3>
-            {ranking.map((m) => (
-                <div key={m.id} className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl"><TrendingUp size={20}/></div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-600 uppercase">{m.mesero}</p>
-                            <p className="font-black text-slate-800 italic">{formatCurrency(m.ticketPromedio)}</p>
-                        </div>
-                    </div>
-                    <div className="text-xs font-bold text-slate-600 uppercase tracking-tighter text-right">
-                        Promedio<br/>por mesa
-                    </div>
+          <h3 className="px-4 font-bold text-slate-800">Calidad de Venta (Ticket Promedio)</h3>
+          {ranking.map((mesero) => (
+            <div
+              key={`ticket-${mesero.id || mesero.mesero}`}
+              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                  <TrendingUp size={20} aria-hidden="true" />
                 </div>
-            ))}
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-600">{mesero.mesero}</p>
+                  <p className="font-black italic text-slate-800">
+                    {formatCurrency(mesero.ticketPromedio)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right text-xs font-bold uppercase tracking-tighter text-slate-600">
+                Promedio
+                <br />
+                por mesa
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -5,8 +5,14 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
 import { http } from '@/lib/http';
 
+interface Comanda {
+  id: number;
+  cantidad: number;
+  producto: { nombre: string; descripcion: string | null };
+  pedido: { mesa: { numero: string }; fecha_creacion: string };
+}
 export default function ComandasCocinaPage() {
-  const [comandas, setComandas] = useState<any[]>([]);
+  const [comandas, setComandas] = useState<Comanda[]>([]);
   const [loading, setLoading] = useState(true);
   const [areaActual, setAreaActual] = useState('Cocina');
   const [isFading, setIsFading] = useState(false);
@@ -19,7 +25,7 @@ export default function ComandasCocinaPage() {
       setLoading(true);
     }
     try {
-      const data = await http.get<any[]>(`/api/cocina/comandas?area=${areaActual}`, { timeoutMs: 10_000 });
+      const data = await http.get<Comanda[]>(`/api/cocina/comandas?area=${areaActual}`, { timeoutMs: 10_000 });
       setComandas(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error al filtrar:", error);

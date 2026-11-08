@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(nuevoProducto);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al crear producto:", error);
     return NextResponse.json({ error: 'Error al guardar en SQL Server' }, { status: 500 });
   }
@@ -56,7 +56,7 @@ export async function PATCH(request: Request) {
       }
     });
     return NextResponse.json(actualizada);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 });
   }
 }

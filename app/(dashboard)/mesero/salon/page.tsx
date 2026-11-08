@@ -9,15 +9,22 @@ import { toastInfo, toastWarning, toastError } from '@/components/ui/Toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { http, getErrorMessage } from '@/lib/http';
 
+interface MesaSalon {
+  id: number;
+  numero: string;
+  estado: string;
+  capacidad: number;
+  meseroNombre?: string | null;
+}
 export default function SalonMeseroPage() {
-  const [mesas, setMesas] = useState<any[]>([]);
+  const [mesas, setMesas] = useState<MesaSalon[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const usuario = useAuthStore((state) => state.user);
 
   const fetchMesas = useCallback(async () => {
     try {
-      const data = await http.get<any[]>('/api/mesas');
+      const data = await http.get<MesaSalon[]>('/api/mesas');
       setMesas(Array.isArray(data) ? data : []);
     } catch {
       setMesas([]);
@@ -56,7 +63,7 @@ export default function SalonMeseroPage() {
     }
   };
 
-  const [openTarget, setOpenTarget] = useState<any | null>(null);
+  const [openTarget, setOpenTarget] = useState<MesaSalon | null>(null);
   const [opening, setOpening] = useState(false);
   const [checkingId, setCheckingId] = useState<number | null>(null);
 
@@ -66,8 +73,8 @@ export default function SalonMeseroPage() {
     try {
       const data = await http.patch<{ pedido: { id: number } }>("/api/mesero/salon", {
         mesaId: openTarget.id,
-        usuarioId: usuario.id,
-        nombreMesero: usuario.nombreCompleto,
+        usuarioId: usuario?.id,
+        nombreMesero: usuario?.nombreCompleto,
       });
 
       setOpenTarget(null);
@@ -79,7 +86,7 @@ export default function SalonMeseroPage() {
     }
   };
 
-  const handleInteraccionMesa = async (mesa: any) => {
+  const handleInteraccionMesa = async (mesa: MesaSalon) => {
     if (mesa.estado === "Libre") {
       setOpenTarget(mesa);
       return;
@@ -103,7 +110,7 @@ export default function SalonMeseroPage() {
         }>(`/api/mesero/pedido/activo?mesaId=${mesa.id}`);
 
         if (data.pedidoId) {
-          if (data.usuarioId !== usuario.id) {
+          if (data.usuarioId !== usuario?.id) {
             toastWarning(
               "Mesa restringida",
               `Atendida por ${data.nombreMesero || "otro mesero"}. Solo el responsable puede gestionarla.`

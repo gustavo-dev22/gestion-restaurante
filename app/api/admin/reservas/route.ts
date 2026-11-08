@@ -8,7 +8,7 @@ export async function GET() {
       orderBy: { fechaReserva: 'asc' }
     });
     return NextResponse.json(reservas);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al obtener reservas' }, { status: 500 });
   }
 }
@@ -29,7 +29,7 @@ export async function PATCH(request: Request) {
     });
 
     return NextResponse.json(reserva);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al actualizar reserva' }, { status: 500 });
   }
 }

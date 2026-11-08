@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth/session';
+import { logger } from '@/lib/logger';
+import { revalidateTag } from 'next/cache';
 
 const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
 
@@ -64,6 +66,8 @@ export async function PATCH(request: Request) {
       return { pedido: nuevoPedido };
     });
 
+    revalidateTag("dashboard", "max");
+
     return NextResponse.json(resultado);
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
@@ -73,7 +77,7 @@ export async function PATCH(request: Request) {
     if (message === 'MESA_NO_ENCONTRADA') {
       return NextResponse.json({ error: 'Mesa no encontrada' }, { status: 404 });
     }
-    console.error('ERROR AL ABRIR MESA:', error);
+    logger.error('Error al abrir mesa', { error });
     return NextResponse.json({ error: 'Error interno en el servidor' }, { status: 500 });
   }
 }

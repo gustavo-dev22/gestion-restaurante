@@ -34,12 +34,30 @@ function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   );
 }
 
+interface ProductoPedido {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  precio: number | string;
+  imagen_url: string | null;
+  categoriaId: number;
+  activo: boolean;
+}
+
+interface CategoriaPedido {
+  id: number;
+  nombre: string;
+}
+
+interface CarritoItem extends ProductoPedido {
+  cantidad: number;
+}
 export default function TomaPedidoPage() {
   const params = useParams();
   const router = useRouter();
-  const [productos, setProductos] = useState<any[]>([]);
-  const [categorias, setCategorias] = useState<any[]>([]);
-  const [carrito, setCarrito] = useState<any[]>([]);
+  const [productos, setProductos] = useState<ProductoPedido[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaPedido[]>([]);
+  const [carrito, setCarrito] = useState<CarritoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [yaTeniaItems, setYaTeniaItems] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -53,9 +71,9 @@ export default function TomaPedidoPage() {
     const fetchData = async () => {
       try {
         const [productosData, categoriasData, datosPedido] = await Promise.all([
-          http.get<any[]>('/api/productos'),
-          http.get<any[]>('/api/categorias'),
-          http.get<any>(`/api/mesero/pedido/resumen?id=${params.id}`),
+          http.get<ProductoPedido[]>('/api/productos'),
+          http.get<CategoriaPedido[]>('/api/categorias'),
+          http.get<{ detalles?: unknown[] }>(`/api/mesero/pedido/resumen?id=${params.id}`),
         ]);
         setProductos(productosData);
         setCategorias(categoriasData);
@@ -98,7 +116,7 @@ export default function TomaPedidoPage() {
     }
   };
 
-  const agregarAlCarrito = (producto: any) => {
+  const agregarAlCarrito = (producto: ProductoPedido) => {
     setCarrito((prev) => {
       const existe = prev.find(item => item.id === producto.id);
       if (existe) {
@@ -261,7 +279,7 @@ export default function TomaPedidoPage() {
               <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100 group">
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-sm text-slate-700 truncate">{item.nombre}</p>
-                  <p className="text-xs text-blue-600 font-bold">{formatCurrency(item.precio * item.cantidad)}</p>
+                  <p className="text-xs text-blue-600 font-bold">{formatCurrency(Number(item.precio) * item.cantidad)}</p>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   <button 
@@ -366,7 +384,7 @@ export default function TomaPedidoPage() {
               <div key={item.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-slate-700">{item.nombre}</p>
-                  <p className="text-xs font-bold text-blue-600">{formatCurrency(item.precio * item.cantidad)}</p>
+                  <p className="text-xs font-bold text-blue-600">{formatCurrency(Number(item.precio) * item.cantidad)}</p>
                 </div>
                 <div className="ml-4 flex items-center gap-2">
                   <button

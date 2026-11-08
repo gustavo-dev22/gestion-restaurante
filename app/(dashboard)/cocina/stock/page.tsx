@@ -7,14 +7,20 @@ import { toastSuccess, toastError } from '@/components/ui/Toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { http } from '@/lib/http';
 
+interface ProductoStock {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  categoria: { nombre: string };
+}
 export default function InventarioRapidoPage() {
-  const [productos, setProductos] = useState<any[]>([]);
+  const [productos, setProductos] = useState<ProductoStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('');
 
   const fetchInventario = async () => {
     try {
-      const data = await http.get<any[]>('/api/cocina/inventario');
+      const data = await http.get<ProductoStock[]>('/api/cocina/inventario');
       setProductos(Array.isArray(data) ? data : []);
     } catch {
       setProductos([]);
