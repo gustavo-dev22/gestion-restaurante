@@ -12,6 +12,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
 import { http } from "@/lib/http";
 import { formatDateTime } from "@/lib/utils";
+import { useDebounce } from "@/lib/useDebounce";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -21,6 +22,7 @@ export default function GestionReservasPage() {
   const [pending, setPending] = useState<{ id: number; mesaId: number; estado: string } | null>(null);
   const [updating, setUpdating] = useState(false);
   const [busqueda, setBusqueda] = useState("");
+  const busquedaDebounced = useDebounce(busqueda, 300);
   const [page, setPage] = useState(1);
 
   const fetchReservas = async () => {
@@ -59,7 +61,7 @@ export default function GestionReservasPage() {
   };
 
   const reservasFiltradas = useMemo(() => {
-    const term = busqueda.trim().toLowerCase();
+    const term = busquedaDebounced.trim().toLowerCase();
     if (!term) return reservas;
 
     return reservas.filter((reserva) => {
@@ -70,7 +72,7 @@ export default function GestionReservasPage() {
         String(reserva.estado ?? "").toLowerCase().includes(term)
       );
     });
-  }, [reservas, busqueda]);
+  }, [reservas, busquedaDebounced]);
 
   const totalPages = Math.max(1, Math.ceil(reservasFiltradas.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);

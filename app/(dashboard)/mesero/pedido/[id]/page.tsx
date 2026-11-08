@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   ShoppingCart, Plus, Minus, ChevronLeft, 
@@ -22,10 +23,12 @@ function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   }
 
   return (
-    <img
+    <Image
       src={src}
-      className="h-full w-full rounded-xl object-cover"
       alt={alt}
+      fill
+      sizes="80px"
+      className="rounded-xl object-cover"
       onError={() => setFailed(true)}
     />
   );

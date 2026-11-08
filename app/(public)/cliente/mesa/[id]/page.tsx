@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   AlertCircle,
   BellRing,
@@ -62,10 +63,12 @@ function ProductImage({ src, alt }: { src?: string | null; alt: string }) {
   }
 
   return (
-    <img
+    <Image
       src={src}
       alt={alt}
-      className="h-full w-full object-cover"
+      fill
+      sizes="96px"
+      className="object-cover"
       onError={() => setFailed(true)}
     />
   );
@@ -405,7 +408,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                       key={producto.id}
                       className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                     >
-                      <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
+                      <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
                         <ProductImage src={producto.imagen_url} alt={producto.nombre} />
                       </div>
                       <div className="flex flex-1 flex-col justify-between">

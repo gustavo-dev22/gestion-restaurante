@@ -13,6 +13,7 @@ import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { http } from "@/lib/http";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useDebounce } from "@/lib/useDebounce";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -22,6 +23,7 @@ export default function VentasPage() {
   const [rango, setRango] = useState("hoy");
   const [detalle, setDetalle] = useState<any | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const busquedaDebounced = useDebounce(busqueda, 300);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function VentasPage() {
   }, [rango]);
 
   const ventasFiltradas = useMemo(() => {
-    const term = busqueda.trim().toLowerCase();
+    const term = busquedaDebounced.trim().toLowerCase();
     if (!term) return ventas;
     return ventas.filter((venta) => {
       const ticket = `#${String(venta.id).padStart(4, "0")}`.toLowerCase();
@@ -51,7 +53,7 @@ export default function VentasPage() {
         String(venta.mesa?.numero ?? "").toLowerCase().includes(term)
       );
     });
-  }, [ventas, busqueda]);
+  }, [ventas, busquedaDebounced]);
 
   const totalPages = Math.max(1, Math.ceil(ventasFiltradas.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);

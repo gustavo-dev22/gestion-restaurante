@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import * as Icons from "lucide-react";
+import { createElement, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Plus, Edit, Trash2, Package, Loader2, Search, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +14,8 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
 import { http } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
+import { resolveIcon } from "@/lib/icons";
+import { useDebounce } from "@/lib/useDebounce";
 
 interface Producto {
   id: number;
@@ -50,17 +52,15 @@ const emptyForm: ProductoForm = {
   stock: "0",
 };
 
-const DynamicIcon = ({ name }: { name: string | null }) => {
-  const iconMap = Icons as unknown as Record<string, Icons.LucideIcon>;
-  const IconComponent = iconMap[name || "Tag"] || Icons.Tag;
-  return <IconComponent size={16} />;
-};
+const DynamicIcon = ({ name }: { name: string | null }) =>
+  createElement(resolveIcon(name), { size: 16 });
 
 export default function ProductosPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<CategoriaOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
+  const filtroDebounced = useDebounce(filtro, 300);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -99,11 +99,15 @@ export default function ProductosPage() {
     fetchCategorias();
   }, []);
 
-  const productosFiltrados = productos.filter(
-    (producto) =>
-      producto.nombre.toLowerCase().includes(filtro.toLowerCase()) ||
-      producto.categoria?.nombre.toLowerCase().includes(filtro.toLowerCase())
-  );
+  const productosFiltrados = useMemo(() => {
+    const term = filtroDebounced.trim().toLowerCase();
+    if (!term) return productos;
+    return productos.filter(
+      (producto) =>
+        producto.nombre.toLowerCase().includes(term) ||
+        producto.categoria?.nombre.toLowerCase().includes(term)
+    );
+  }, [productos, filtroDebounced]);
 
   const totalPages = Math.ceil(productosFiltrados.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -254,8 +258,11 @@ export default function ProductosPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       {prod.imagen_url ? (
-                        <img
+                        <Image
                           src={prod.imagen_url}
+                          width={40}
+                          height={40}
+                          sizes="40px"
                           className="h-10 w-10 rounded-lg border object-cover"
                           alt={`Imagen de ${prod.nombre}`}
                         />

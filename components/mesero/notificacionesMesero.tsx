@@ -111,7 +111,7 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
         <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-white p-4 shadow-xl">
           <div className="relative rounded-full bg-rose-50 p-2 text-rose-600">
             <Bell size={20} />
-            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-black text-white">
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-xs font-black text-white">
               {visibles.length}
             </span>
           </div>

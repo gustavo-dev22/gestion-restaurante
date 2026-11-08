@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import * as Icons from "lucide-react";
+import { createElement, useEffect, useState } from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +15,7 @@ import { toastSuccess, toastError } from "@/components/ui/Toast";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { http } from "@/lib/http";
+import { resolveIcon } from "@/lib/icons";
 
 interface Categoria {
   id: number;
@@ -43,11 +43,8 @@ const emptyForm: CategoriaForm = {
   activo: true,
 };
 
-const DynamicIcon = ({ name }: { name: string | null }) => {
-  const iconMap = Icons as unknown as Record<string, Icons.LucideIcon>;
-  const IconComponent = iconMap[name || "Tag"] || Icons.Tag;
-  return <IconComponent size={16} />;
-};
+const DynamicIcon = ({ name }: { name: string | null }) =>
+  createElement(resolveIcon(name), { size: 16 });
 
 export default function CategoriasPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -175,7 +172,7 @@ export default function CategoriasPage() {
           <TableSkeleton rows={5} columns={5} className="border-0" />
         ) : currentItems.length === 0 ? (
           <EmptyState
-            icon={Icons.Tag}
+            icon={resolveIcon("Tag")}
             title="Sin categorías registradas"
             description="Crea tu primera categoría para organizar la carta."
             action={
