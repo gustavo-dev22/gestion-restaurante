@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Categoria {
+  id             Int        @id(map: "PK__Categori__3213E83F70DA985B") @default(autoincrement())
+  nombre         String     @db.NVarChar(100)
+  descripcion    String?    @db.NVarChar(255)
+  icono          String?    @db.NVarChar(50)
+  activo         Boolean?   @default(true, map: "DF__Categoria__activ__37A5467C")
+  fecha_creacion DateTime?  @default(dbgenerated("GETDATE()"), map: "DF__Categoria__fecha__38996AB5")
+  area           String?    @default("Cocina", map: "DF__Categorias__area__5EBF139D") @db.VarChar(20)
+  productos      Producto[]
+
+  @@map("Categorias")
+}
+
+model Producto {
+  id             Int             @id(map: "PK__Producto__3213E83F276ADAA2") @default(autoincrement())
+  nombre         String          @db.NVarChar(150)
+  descripcion    String?         @db.NVarChar(Max)
+  precio         Decimal         @db.Decimal(10, 2)
+  imagen_url     String?         @db.NVarChar(Max)
+  stock          Int?            @default(0, map: "DF__Productos__stock__3B75D760")
+  categoriaId    Int
+  activo         Boolean?        @default(true, map: "DF__Productos__activ__3C69FB99")
+  fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
+  detallesPedido PedidoDetalle[]
+  categoria      Categoria       @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
+
+  @@map("Productos")
+}
+
+model Mesa {
+  id             Int       @id(map: "PK__Mesas__3213E83F474B4572") @default(autoincrement())
+  numero         String    @db.NVarChar(20)
+  capacidad      Int?      @default(2, map: "DF__Mesas__capacidad__412EB0B6")
+  zona           String?   @db.NVarChar(50)
+  estado         String?   @default("Libre", map: "DF__Mesas__estado__4222D4EF") @db.NVarChar(20)
+  activo         Boolean?  @default(true, map: "DF__Mesas__activo__4316F928")
+  fecha_creacion DateTime? @default(dbgenerated("GETDATE()"), map: "DF__Mesas__fecha_cre__440B1D61")
+  pedidos        Pedido[]
+  reservas       Reserva[] @relation("MesaAReservas")
+
+  @@map("Mesas")
+}
+
+model Pedido {
+  id             Int             @id(map: "PK__Pedidos__3213E83F1137F0B1") @default(autoincrement())
+  mesaId         Int
+  usuarioId      String?         @db.UniqueIdentifier
+  total          Decimal?        @default(0.00, map: "DF__Pedidos__total__46E78A0C") @db.Decimal(10, 2)
+  estado         String?         @default("Pendiente", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(20)
+  fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
+  nombreMesero   String?         @db.NVarChar(100)
+  detalles       PedidoDetalle[]
+  mesa           Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
+
+  @@map("Pedidos")
+}
+
+model PedidoDetalle {
+  id              Int      @id(map: "PK__Pedido_D__3213E83F64EC93C8") @default(autoincrement())
+  pedidoId        Int
+  productoId      Int
+  cantidad        Int
+  precio_unitario Decimal  @db.Decimal(10, 2)
+  subtotal        Decimal? @db.Decimal(21, 2)
+  estado          String?  @db.VarChar(20)
+  pedido          Pedido   @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
+  producto        Producto @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")
+
+  @@map("Pedido_Detalles")
+}
+
+model Reserva {
+  id              Int      @id @default(autoincrement())
+  clienteNombre   String   @db.NVarChar(100)
+  clienteTelefono String   @db.NVarChar(20)
+  fechaReserva    DateTime @db.DateTime
+  numPersonas     Int
+  mesaId          Int
+  estado          String   @default("Confirmada")
+  fecha_creacion  DateTime @default(dbgenerated("GETDATE()")) @db.DateTime
+  mesa            Mesa     @relation("MesaAReservas", fields: [mesaId], references: [id])
+
+  @@map("Reservas")
+}
