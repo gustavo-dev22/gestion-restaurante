@@ -7,6 +7,7 @@ import { Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastError } from "@/components/ui/Toast";
+import { http } from "@/lib/http";
 
 interface ReservaForm {
   clienteNombre: string;
@@ -36,9 +37,9 @@ export default function FormularioReservaPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    fetch("/api/mesas")
-      .then((res) => res.json())
-      .then((data) => setMesas(Array.isArray(data) ? data.filter((mesa: any) => mesa.estado === "Libre") : []))
+    http
+      .get<any[]>("/api/mesas", { skipAuthRedirect: true })
+      .then((data) => setMesas(Array.isArray(data) ? data.filter((mesa) => mesa.estado === "Libre") : []))
       .catch(() => setMesas([]))
       .finally(() => setLoadingMesas(false));
   }, []);
@@ -69,13 +70,7 @@ export default function FormularioReservaPage() {
   const confirmarReserva = async () => {
     setSending(true);
     try {
-      const res = await fetch("/api/public/reservar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) throw new Error();
+      await http.post("/api/public/reservar", formData, { skipAuthRedirect: true });
 
       setConfirmOpen(false);
       setEnviado(true);

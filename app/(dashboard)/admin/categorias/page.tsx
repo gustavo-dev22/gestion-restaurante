@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import * as Icons from "lucide-react";
-import { Plus, Edit, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Input, selectBase } from "@/components/ui/Input";
@@ -13,6 +13,9 @@ import { DataTable, DataTablePagination } from "@/components/ui/DataTable";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { http } from "@/lib/http";
 
 interface Categoria {
   id: number;
@@ -64,8 +67,7 @@ export default function CategoriasPage() {
   const fetchCategorias = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/categorias");
-      const data = await res.json();
+      const data = await http.get<Categoria[]>("/api/categorias");
       if (Array.isArray(data)) setCategorias(data);
     } catch {
       setCategorias([]);
@@ -121,13 +123,11 @@ export default function CategoriasPage() {
     };
 
     try {
-      const res = await fetch("/api/categorias", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error();
+      if (editing) {
+        await http.patch("/api/categorias", payload);
+      } else {
+        await http.post("/api/categorias", payload);
+      }
 
       setFormOpen(false);
       toastSuccess(editing ? "Categoría actualizada" : "Categoría creada", "Los cambios se guardaron correctamente.");
@@ -143,8 +143,7 @@ export default function CategoriasPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/categorias?id=${deleteTarget.id}`, { method: "DELETE" });
-      const data = await res.json();
+      const data = await http.delete<{ success: boolean; message: string }>(`/api/categorias?id=${deleteTarget.id}`);
       if (data.success) {
         toastSuccess("Categoría desactivada", data.message);
         setDeleteTarget(null);
@@ -173,13 +172,18 @@ export default function CategoriasPage() {
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
-          <div className="flex flex-col items-center py-20 text-slate-500">
-            <Loader2 className="mb-2 animate-spin" /> Cargando...
-          </div>
+          <TableSkeleton rows={5} columns={5} className="border-0" />
         ) : currentItems.length === 0 ? (
-          <div className="flex flex-col items-center py-20 text-slate-500">
-            <AlertCircle className="mb-2" /> Sin registros
-          </div>
+          <EmptyState
+            icon={Icons.Tag}
+            title="Sin categorías registradas"
+            description="Crea tu primera categoría para organizar la carta."
+            action={
+              <Button onClick={openCreate}>
+                <Plus size={18} /> Nueva Categoría
+              </Button>
+            }
+          />
         ) : (
           <>
             <DataTable>

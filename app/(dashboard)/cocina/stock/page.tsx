@@ -4,6 +4,8 @@ import { Package, Search, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Input } from '@/components/ui/Input';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { http } from '@/lib/http';
 
 export default function InventarioRapidoPage() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -11,10 +13,14 @@ export default function InventarioRapidoPage() {
   const [filtro, setFiltro] = useState('');
 
   const fetchInventario = async () => {
-    const res = await fetch('/api/cocina/inventario');
-    const data = await res.json();
-    setProductos(data);
-    setLoading(false);
+    try {
+      const data = await http.get<any[]>('/api/cocina/inventario');
+      setProductos(Array.isArray(data) ? data : []);
+    } catch {
+      setProductos([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchInventario(); }, []);
@@ -26,13 +32,7 @@ export default function InventarioRapidoPage() {
     setProductos(prev => prev.map(p => p.id === id ? { ...p, activo: nuevoEstado } : p));
 
     try {
-      const res = await fetch('/api/cocina/inventario', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, activo: nuevoEstado })
-      });
-
-      if (!res.ok) throw new Error();
+      await http.patch('/api/cocina/inventario', { id, activo: nuevoEstado });
 
       toastSuccess(
         `${nombre} ${nuevoEstado ? "disponible" : "agotado"}`,
@@ -71,6 +71,13 @@ export default function InventarioRapidoPage() {
         />
       </div>
 
+      {productosFiltrados.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="Sin productos"
+          description="No se encontraron platos o bebidas con ese criterio de búsqueda."
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {productosFiltrados.map((prod) => (
           <div 
@@ -104,6 +111,7 @@ export default function InventarioRapidoPage() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

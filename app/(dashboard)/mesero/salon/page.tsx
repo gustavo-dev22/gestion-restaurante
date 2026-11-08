@@ -7,6 +7,8 @@ import NotificacionesMesero from '@/components/mesero/notificacionesMesero';
 import { PageHeader } from '@/components/ui/PageHeader';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastInfo, toastWarning, toastError } from '@/components/ui/Toast';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { http } from '@/lib/http';
 
 export default function SalonMeseroPage() {
   const [mesas, setMesas] = useState<any[]>([]);
@@ -15,10 +17,14 @@ export default function SalonMeseroPage() {
   const usuario = useAuthStore((state) => state.user);
 
   const fetchMesas = async () => {
-    const res = await fetch('/api/mesas');
-    const data = await res.json();
-    setMesas(data);
-    setLoading(false);
+    try {
+      const data = await http.get<any[]>('/api/mesas');
+      setMesas(Array.isArray(data) ? data : []);
+    } catch {
+      setMesas([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchMesas(); }, []);
@@ -50,19 +56,12 @@ export default function SalonMeseroPage() {
     if (!openTarget) return;
     setOpening(true);
     try {
-      const res = await fetch("/api/mesero/salon", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mesaId: openTarget.id,
-          usuarioId: usuario.id,
-          nombreMesero: usuario.nombreCompleto,
-        }),
+      const data = await http.patch<{ pedido: { id: number } }>("/api/mesero/salon", {
+        mesaId: openTarget.id,
+        usuarioId: usuario.id,
+        nombreMesero: usuario.nombreCompleto,
       });
 
-      if (!res.ok) throw new Error();
-
-      const data = await res.json();
       setOpenTarget(null);
       router.push(`/mesero/pedido/${data.pedido.id}`);
     } catch {
@@ -89,8 +88,11 @@ export default function SalonMeseroPage() {
     if (mesa.estado === "Ocupada") {
       setCheckingId(mesa.id);
       try {
-        const res = await fetch(`/api/mesero/pedido/activo?mesaId=${mesa.id}`);
-        const data = await res.json();
+        const data = await http.get<{
+          pedidoId?: number;
+          usuarioId?: string;
+          nombreMesero?: string;
+        }>(`/api/mesero/pedido/activo?mesaId=${mesa.id}`);
 
         if (data.pedidoId) {
           if (data.usuarioId !== usuario.id) {
@@ -120,6 +122,12 @@ export default function SalonMeseroPage() {
 
       {loading ? (
         <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />
+      ) : mesas.length === 0 ? (
+        <EmptyState
+          icon={LayoutGrid}
+          title="Sin mesas registradas"
+          description="El administrador aún no ha configurado las mesas del salón."
+        />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {mesas.map((mesa) => (

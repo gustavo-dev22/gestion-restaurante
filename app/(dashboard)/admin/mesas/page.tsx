@@ -22,6 +22,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError, toastWarning } from "@/components/ui/Toast";
+import { http } from "@/lib/http";
 
 interface Mesa {
   id: number;
@@ -57,8 +58,7 @@ export default function MesasPage() {
   const fetchMesas = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/mesas");
-      const data = await res.json();
+      const data = await http.get<Mesa[]>("/api/mesas");
       if (Array.isArray(data)) setMesas(data);
     } catch {
       setMesas([]);
@@ -120,20 +120,20 @@ export default function MesasPage() {
     event.preventDefault();
     if (!validate()) return;
 
+    const payload = {
+      ...(editing ? { id: editing.id, estado: form.estado } : {}),
+      numero: form.numero.trim(),
+      capacidad: form.capacidad,
+      zona: form.zona.trim(),
+    };
+
     setSaving(true);
     try {
-      const res = await fetch("/api/mesas", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(editing ? { id: editing.id, estado: form.estado } : {}),
-          numero: form.numero.trim(),
-          capacidad: form.capacidad,
-          zona: form.zona.trim(),
-        }),
-      });
-
-      if (!res.ok) throw new Error();
+      if (editing) {
+        await http.patch("/api/mesas", payload);
+      } else {
+        await http.post("/api/mesas", payload);
+      }
 
       setFormOpen(false);
       toastSuccess(editing ? "Mesa actualizada" : "Mesa creada", "Los cambios se guardaron correctamente.");
@@ -157,8 +157,7 @@ export default function MesasPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/mesas?id=${deleteTarget.id}`, { method: "DELETE" });
-      const data = await res.json();
+      const data = await http.delete<{ success: boolean; message: string }>(`/api/mesas?id=${deleteTarget.id}`);
       if (data.success) {
         toastSuccess("Mesa eliminada", data.message);
         setDeleteTarget(null);

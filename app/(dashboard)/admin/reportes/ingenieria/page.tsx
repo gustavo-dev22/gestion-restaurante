@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Star, Zap, Puzzle, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { http } from '@/lib/http';
+import { formatCurrency } from '@/lib/utils';
 import { DataTable } from '@/components/ui/DataTable';
 
 export default function IngenieriaMenuPage() {
@@ -13,9 +15,7 @@ export default function IngenieriaMenuPage() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/admin/reportes/ingenieria');
-      if (!res.ok) throw new Error('Respuesta no válida');
-      const data = await res.json();
+      const data = await http.get<any>('/api/admin/reportes/ingenieria');
       if (!Array.isArray(data?.matriz)) throw new Error('Datos incompletos');
       setReporte(data);
     } catch {
@@ -98,7 +98,7 @@ export default function IngenieriaMenuPage() {
               <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                 <td className="p-6 font-bold text-slate-700">{p.nombre}</td>
                 <td className="p-6 text-center font-mono font-bold text-slate-500">{p.cantidad}</td>
-                <td className="p-6 text-center text-emerald-600 font-black">S/ {p.margen}</td>
+                <td className="p-6 text-center text-emerald-600 font-black">{formatCurrency(p.margen)}</td>
                 <td className="p-6">
                    <div className="flex items-center gap-2">
                      {getIcon(p.clasificacion)}

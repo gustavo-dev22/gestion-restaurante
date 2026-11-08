@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError, toastWarning } from '@/components/ui/Toast';
+import { http } from '@/lib/http';
+import { formatCurrency } from '@/lib/utils';
 
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
@@ -47,15 +49,14 @@ export default function TomaPedidoPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [resProd, resCat, resResumen] = await Promise.all([
-          fetch('/api/productos'),
-          fetch('/api/categorias'),
-          fetch(`/api/mesero/pedido/resumen?id=${params.id}`)
+        const [productosData, categoriasData, datosPedido] = await Promise.all([
+          http.get<any[]>('/api/productos'),
+          http.get<any[]>('/api/categorias'),
+          http.get<any>(`/api/mesero/pedido/resumen?id=${params.id}`),
         ]);
-        setProductos(await resProd.json());
-        setCategorias(await resCat.json());
+        setProductos(productosData);
+        setCategorias(categoriasData);
 
-        const datosPedido = await resResumen.json();
         // Si el pedido ya tiene detalles en la BD, marcamos como true
         if (datosPedido.detalles && datosPedido.detalles.length > 0) {
           setYaTeniaItems(true);
@@ -83,8 +84,7 @@ export default function TomaPedidoPage() {
   const cancelarApertura = async () => {
     setCanceling(true);
     try {
-      const res = await fetch(`/api/mesero/pedido/cancelar?id=${params.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
+      await http.delete(`/api/mesero/pedido/cancelar?id=${params.id}`);
       setCancelOpen(false);
       toastSuccess('Mesa liberada', 'La apertura del pedido fue anulada.');
       router.push('/mesero/salon');
@@ -127,13 +127,7 @@ export default function TomaPedidoPage() {
   const guardarComanda = async () => {
     setSending(true);
     try {
-      const res = await fetch('/api/mesero/pedido/detalle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedidoId: params.id, items: carrito }),
-      });
-
-      if (!res.ok) throw new Error();
+      await http.post('/api/mesero/pedido/detalle', { pedidoId: params.id, items: carrito });
 
       setSendOpen(false);
       toastSuccess('Comanda enviada', 'La comanda fue procesada correctamente.');
@@ -226,7 +220,7 @@ export default function TomaPedidoPage() {
                           {prod.descripcion || 'Sin descripción disponible.'}
                         </p>
                         <div className="flex justify-between items-center">
-                          <p className="font-black text-blue-600">S/ {Number(prod.precio).toFixed(2)}</p>
+                          <p className="font-black text-blue-600">{formatCurrency(prod.precio)}</p>
                           <div className="bg-blue-50 text-blue-600 p-1.5 rounded-full group-hover:bg-blue-600 group-hover:text-white transition-all">
                             <Plus size={14}/>
                           </div>
@@ -261,7 +255,7 @@ export default function TomaPedidoPage() {
               <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100 group">
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-sm text-slate-700 truncate">{item.nombre}</p>
-                  <p className="text-xs text-blue-600 font-bold">S/ {Number(item.precio * item.cantidad).toFixed(2)}</p>
+                  <p className="text-xs text-blue-600 font-bold">{formatCurrency(item.precio * item.cantidad)}</p>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   <button 
@@ -291,7 +285,7 @@ export default function TomaPedidoPage() {
         <div className="border-t border-slate-100 pt-6 mt-6">
           <div className="flex justify-between items-end mb-6">
             <span className="text-slate-600 font-bold uppercase text-xs tracking-widest">Total Pedido</span>
-            <span className="text-3xl font-black text-slate-800">S/ {total.toFixed(2)}</span>
+            <span className="text-3xl font-black text-slate-800">{formatCurrency(total)}</span>
           </div>
           <button 
             onClick={requestSend}
@@ -320,7 +314,7 @@ export default function TomaPedidoPage() {
             </span>
             Ver comanda
           </span>
-          <span className="font-black">S/ {total.toFixed(2)}</span>
+          <span className="font-black">{formatCurrency(total)}</span>
         </button>
       </div>
 
@@ -366,7 +360,7 @@ export default function TomaPedidoPage() {
               <div key={item.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-slate-700">{item.nombre}</p>
-                  <p className="text-xs font-bold text-blue-600">S/ {Number(item.precio * item.cantidad).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-blue-600">{formatCurrency(item.precio * item.cantidad)}</p>
                 </div>
                 <div className="ml-4 flex items-center gap-2">
                   <button
@@ -395,7 +389,7 @@ export default function TomaPedidoPage() {
         <div className="mt-4 border-t border-slate-100 pt-4">
           <div className="mb-4 flex items-end justify-between">
             <span className="text-xs font-bold uppercase tracking-widest text-slate-600">Total Pedido</span>
-            <span className="text-3xl font-black text-slate-800">S/ {total.toFixed(2)}</span>
+            <span className="text-3xl font-black text-slate-800">{formatCurrency(total)}</span>
           </div>
           <button
             type="button"

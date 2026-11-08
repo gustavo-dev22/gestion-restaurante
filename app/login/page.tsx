@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
+import { getHomePath, type AuthUserLike } from "@/lib/roles";
+import { http } from "@/lib/http";
 import { Input } from "@/components/ui/Input";
 import { Label, FieldError } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -34,17 +36,16 @@ export default function LoginPage() {
     setErrors({});
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
-      });
-
-      const data = await res.json();
+      const data = await http.post<{
+        success: boolean;
+        message?: string;
+        usuario?: AuthUserLike;
+        token?: string;
+      }>("/api/auth/login", { username: username.trim(), password }, { skipAuthRedirect: true });
 
       if (data.success) {
-        setAuth(data.usuario, data.token);
-        router.push("/dashboard");
+        setAuth(data.usuario, data.token ?? "");
+        router.replace(getHomePath(data.usuario));
       } else {
         setErrors({ form: data.message || "Usuario o contraseña incorrectos." });
       }

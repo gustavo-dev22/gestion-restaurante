@@ -5,6 +5,7 @@ import { Utensils, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { toastError } from '@/components/ui/Toast';
+import { http } from '@/lib/http';
 
 export default function NuevoPedidoQuickPage() {
   const [mesasLibres, setMesasLibres] = useState<any[]>([]);
@@ -15,11 +16,15 @@ export default function NuevoPedidoQuickPage() {
   const usuario = useAuthStore((state) => state.user);
 
   useEffect(() => {
-    fetch('/api/mesas')
-      .then(res => res.json())
-      .then(data => {
-        // Solo mostramos las mesas que están LIBRES
-        setMesasLibres(data.filter((m: any) => m.estado === 'Libre'));
+    http
+      .get<any[]>('/api/mesas')
+      .then((data) => {
+        setMesasLibres(data.filter((mesa) => mesa.estado === 'Libre'));
+      })
+      .catch(() => {
+        setMesasLibres([]);
+      })
+      .finally(() => {
         setLoading(false);
       });
   }, []);
@@ -32,15 +37,12 @@ export default function NuevoPedidoQuickPage() {
 
     setOpeningId(mesaId);
     try {
-      const res = await fetch('/api/mesero/salon', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mesaId, usuarioId: usuario.id, nombreMesero: usuario.nombreCompleto }),
+      const data = await http.patch<{ pedido: { id: number } }>('/api/mesero/salon', {
+        mesaId,
+        usuarioId: usuario.id,
+        nombreMesero: usuario.nombreCompleto,
       });
 
-      if (!res.ok) throw new Error();
-
-      const data = await res.json();
       router.push(`/mesero/pedido/${data.pedido.id}`);
     } catch {
       toastError("No se pudo abrir la mesa", "Intenta nuevamente en unos segundos.");

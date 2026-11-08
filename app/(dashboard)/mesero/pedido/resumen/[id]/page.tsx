@@ -11,6 +11,8 @@ import { selectBase } from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError, toastWarning } from "@/components/ui/Toast";
+import { http, HttpError } from "@/lib/http";
+import { formatCurrency } from "@/lib/utils";
 
 export default function ResumenPedido() {
   const params = useParams();
@@ -30,8 +32,7 @@ export default function ResumenPedido() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(`/api/mesero/pedido/resumen?id=${params.id}`);
-      const data = await res.json();
+      const data = await http.get<any>(`/api/mesero/pedido/resumen?id=${params.id}`);
       if (!data?.mesa) throw new Error();
       setPedido(data);
     } catch {
@@ -49,8 +50,7 @@ export default function ResumenPedido() {
   const handleCancelarApertura = async () => {
     setCanceling(true);
     try {
-      const res = await fetch(`/api/mesero/pedido/cancelar?id=${params.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await http.delete(`/api/mesero/pedido/cancelar?id=${params.id}`);
       setCancelOpen(false);
       toastSuccess("Mesa liberada", "La apertura del pedido fue anulada.");
       router.push("/mesero/salon");
@@ -75,28 +75,18 @@ export default function ResumenPedido() {
 
     setPaying(true);
     try {
-      const res = await fetch("/api/mesero/pedido/pagar", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoId: params.id, metodoPago: metodo }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.error === "COCINA_PENDIENTE") {
-          toastWarning("Espera un momento", data.message);
-        } else {
-          toastError("No se pudo procesar el pago", "Intenta nuevamente en unos segundos.");
-        }
-        return;
-      }
+      await http.patch("/api/mesero/pedido/pagar", { pedidoId: params.id, metodoPago: metodo });
 
       setPayOpen(false);
       toastSuccess("Venta exitosa", "La mesa ha sido liberada.");
       router.push("/mesero/salon");
-    } catch {
-      toastError("No se pudo procesar el pago", "Intenta nuevamente en unos segundos.");
+    } catch (error) {
+      const data = error instanceof HttpError ? (error.data as { error?: string; message?: string } | null) : null;
+      if (data?.error === "COCINA_PENDIENTE") {
+        toastWarning("Espera un momento", data.message ?? "Aún hay platos pendientes en cocina.");
+      } else {
+        toastError("No se pudo procesar el pago", "Intenta nuevamente en unos segundos.");
+      }
     } finally {
       setPaying(false);
     }
@@ -140,11 +130,11 @@ export default function ResumenPedido() {
                   <Badge tone={det.estado === "Listo" ? "emerald" : "amber"}>{det.estado}</Badge>
                 </div>
                 <p className="text-sm text-slate-600">
-                  {det.cantidad} x S/ {Number(det.precio_unitario).toFixed(2)}
+                  {det.cantidad} x {formatCurrency(det.precio_unitario)}
                 </p>
               </div>
               <span className="shrink-0 font-bold text-slate-700">
-                S/ {(Number(det.precio_unitario) * det.cantidad).toFixed(2)}
+                {formatCurrency(Number(det.precio_unitario) * det.cantidad)}
               </span>
             </div>
           ))}
@@ -152,7 +142,7 @@ export default function ResumenPedido() {
 
         <div className="mt-6 flex items-end justify-between border-t border-slate-200 pt-6">
           <span className="font-medium text-slate-600">Total a pagar</span>
-          <span className="text-3xl font-black text-blue-700">S/ {Number(pedido.total).toFixed(2)}</span>
+          <span className="text-3xl font-black text-blue-700">{formatCurrency(pedido.total)}</span>
         </div>
       </div>
 
@@ -196,7 +186,7 @@ export default function ResumenPedido() {
         open={payOpen}
         onClose={() => setPayOpen(false)}
         title="Finalizar pedido"
-        description={`Total a cobrar: S/ ${Number(pedido.total).toFixed(2)}`}
+        description={`Total a cobrar: ${formatCurrency(pedido.total)}`}
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setPayOpen(false)} disabled={paying}>

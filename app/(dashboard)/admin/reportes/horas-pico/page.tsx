@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Clock, TrendingUp, Users } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { http } from '@/lib/http';
 
 export default function HorasPicoPage() {
   const [data, setData] = useState<any>(null);
@@ -12,9 +13,7 @@ export default function HorasPicoPage() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/admin/reportes/horas-pico');
-      if (!res.ok) throw new Error('Respuesta no válida');
-      const json = await res.json();
+      const json = await http.get<any>('/api/admin/reportes/horas-pico');
       if (!json?.resumen || !Array.isArray(json?.ventasPorHora)) {
         throw new Error('Datos incompletos');
       }

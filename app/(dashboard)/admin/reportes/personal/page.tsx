@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Medal, TrendingUp, Award } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { http } from '@/lib/http';
+import { formatCurrency } from '@/lib/utils';
 import { DataTable } from '@/components/ui/DataTable';
 
 export default function DesempenoPersonalPage() {
@@ -13,9 +15,7 @@ export default function DesempenoPersonalPage() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/admin/reportes/personal');
-      if (!res.ok) throw new Error('Respuesta no válida');
-      const data = await res.json();
+      const data = await http.get<any[]>('/api/admin/reportes/personal');
       setRanking(Array.isArray(data) ? data : []);
     } catch {
       setRanking([]);
@@ -64,7 +64,7 @@ export default function DesempenoPersonalPage() {
             </div>
             <div className="mt-6 md:mt-0 text-right">
                 <p className="text-sm font-bold text-slate-600 uppercase">Venta Acumulada</p>
-                <p className="text-5xl font-black text-slate-900">S/ {Number(ranking[0].total).toFixed(2)}</p>
+                <p className="text-5xl font-black text-slate-900">{formatCurrency(ranking[0].total)}</p>
             </div>
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function DesempenoPersonalPage() {
                             <td className="p-6 font-black text-slate-500 group-hover:text-blue-600 text-xl italic">#{idx + 1}</td>
                             <td className="p-6 font-bold text-slate-700">{m.mesero}</td>
                             <td className="p-6 text-center font-bold text-slate-500">{m.pedidos}</td>
-                            <td className="p-6 text-right font-black text-slate-800">S/ {Number(m.total).toFixed(2)}</td>
+                            <td className="p-6 text-right font-black text-slate-800">{formatCurrency(m.total)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -108,7 +108,7 @@ export default function DesempenoPersonalPage() {
                         <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl"><TrendingUp size={20}/></div>
                         <div>
                             <p className="text-xs font-bold text-slate-600 uppercase">{m.mesero}</p>
-                            <p className="font-black text-slate-800 italic">S/ {m.ticketPromedio}</p>
+                            <p className="font-black text-slate-800 italic">{formatCurrency(m.ticketPromedio)}</p>
                         </div>
                     </div>
                     <div className="text-xs font-bold text-slate-600 uppercase tracking-tighter text-right">

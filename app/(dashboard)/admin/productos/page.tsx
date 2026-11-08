@@ -12,6 +12,8 @@ import { DataTable, DataTablePagination } from "@/components/ui/DataTable";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
+import { http } from "@/lib/http";
+import { formatCurrency } from "@/lib/utils";
 
 interface Producto {
   id: number;
@@ -72,16 +74,18 @@ export default function ProductosPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchCategorias = async () => {
-    const res = await fetch("/api/categorias");
-    const data = await res.json();
-    if (Array.isArray(data)) setCategorias(data);
+    try {
+      const data = await http.get<CategoriaOption[]>("/api/categorias");
+      if (Array.isArray(data)) setCategorias(data);
+    } catch {
+      setCategorias([]);
+    }
   };
 
   const fetchProductos = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/productos");
-      const data = await res.json();
+      const data = await http.get<Producto[]>("/api/productos");
       if (Array.isArray(data)) setProductos(data);
     } catch {
       setProductos([]);
@@ -140,23 +144,23 @@ export default function ProductosPage() {
     event.preventDefault();
     if (!validate()) return;
 
+    const payload = {
+      ...(editing ? { id: editing.id } : {}),
+      nombre: form.nombre.trim(),
+      precio: form.precio,
+      categoriaId: form.categoriaId,
+      descripcion: form.descripcion.trim(),
+      imagen_url: form.imagen_url.trim(),
+      stock: form.stock || "0",
+    };
+
     setSaving(true);
     try {
-      const res = await fetch("/api/productos", {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(editing ? { id: editing.id } : {}),
-          nombre: form.nombre.trim(),
-          precio: form.precio,
-          categoriaId: form.categoriaId,
-          descripcion: form.descripcion.trim(),
-          imagen_url: form.imagen_url.trim(),
-          stock: form.stock || "0",
-        }),
-      });
-
-      if (!res.ok) throw new Error();
+      if (editing) {
+        await http.patch("/api/productos", payload);
+      } else {
+        await http.post("/api/productos", payload);
+      }
 
       setFormOpen(false);
       toastSuccess(
@@ -175,8 +179,7 @@ export default function ProductosPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/productos?id=${deleteTarget.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await http.delete(`/api/productos?id=${deleteTarget.id}`);
       toastSuccess("Producto eliminado", `${deleteTarget.nombre} se quitó de la carta.`);
       setDeleteTarget(null);
       fetchProductos();
@@ -273,7 +276,7 @@ export default function ProductosPage() {
                       {prod.categoria?.nombre}
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-mono font-bold text-slate-700">S/ {Number(prod.precio).toFixed(2)}</td>
+                  <td className="px-6 py-4 font-mono font-bold text-slate-700">{formatCurrency(prod.precio)}</td>
                   <td className="px-6 py-4">
                     <span className={`text-sm font-medium ${prod.stock < 10 ? "text-rose-600" : "text-slate-700"}`}>
                       {prod.stock} uds.

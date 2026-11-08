@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Clock, CheckCircle2, Flame, Utensils, Loader2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
+import { http } from '@/lib/http';
 
 export default function ComandasCocinaPage() {
   const [comandas, setComandas] = useState<any[]>([]);
@@ -18,8 +19,7 @@ export default function ComandasCocinaPage() {
       setLoading(true);
     }
     try {
-      const res = await fetch(`/api/cocina/comandas?area=${areaActual}`);
-      const data = await res.json();
+      const data = await http.get<any[]>(`/api/cocina/comandas?area=${areaActual}`, { timeoutMs: 10_000 });
       setComandas(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error al filtrar:", error);
@@ -74,16 +74,10 @@ export default function ComandasCocinaPage() {
     if (!pendiente) return;
     setCompletando(true);
     try {
-      const res = await fetch('/api/cocina/comandas', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          detalleId: pendiente.id,
-          nuevoEstado: 'Listo',
-        }),
+      await http.patch('/api/cocina/comandas', {
+        detalleId: pendiente.id,
+        nuevoEstado: 'Listo',
       });
-
-      if (!res.ok) throw new Error();
 
       setComandas((prev) => prev.filter((comanda) => comanda.id !== pendiente.id));
       toastSuccess(

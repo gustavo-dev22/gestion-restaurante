@@ -7,6 +7,7 @@ import {
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
+import { http } from '@/lib/http';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -17,9 +18,7 @@ export default function AdminDashboard() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/dashboard/stats');
-      if (!res.ok) throw new Error('Respuesta no válida');
-      const data = await res.json();
+      const data = await http.get<Record<string, number>>('/api/dashboard/stats');
       if (!data || typeof data !== 'object') throw new Error('Datos inválidos');
       setStats(data);
     } catch {

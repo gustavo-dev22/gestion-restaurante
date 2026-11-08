@@ -1,9 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
-import { Clock, Receipt, PlusCircle, Loader2, Utensils } from 'lucide-react';
+import { Clock, Receipt, PlusCircle, Utensils } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { timeAgo, formatCurrency } from '@/lib/utils';
+import { TableSkeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { http } from '@/lib/http';
 
 export default function MisPedidosPage() {
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -12,78 +16,30 @@ export default function MisPedidosPage() {
 
   const usuario = useAuthStore((state) => state.user);
 
-  const fetchPedidosActivos = async () => {
-    if (!usuario?.id) return;
-    
+  const fetchPedidosActivos = useCallback(async () => {
+    if (!usuario?.id) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Enviamos el usuarioId como parámetro
-      const res = await fetch(`/api/mesero/pedidos-activos?usuarioId=${usuario.id}`);
-      const data = await res.json();
+      const data = await http.get<any[]>(`/api/mesero/pedidos-activos?usuarioId=${usuario.id}`);
       if (Array.isArray(data)) setPedidos(data);
+    } catch {
+      setPedidos([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [usuario?.id]);
 
-  useEffect(() => { 
-    fetchPedidosActivos(); 
-  }, [usuario?.id]); // Se dispara cuando el usuario carga
-
-  const calcularTiempo = (fecha: string) => {
-  try {
-    // 1. Convertimos el string de la DB (Hora de Perú) a objeto Date.
-    // Al usar replace(" ", "T"), JS lo interpreta como hora local del navegador.
-    const fechaISO = fecha.replace(" ", "T");
-    const inicio = new Date(fechaISO);
-    const ahora = new Date();
-
-    // 2. Calculamos la diferencia bruta en milisegundos
-    const diffMs = ahora.getTime() - inicio.getTime();
-    
-    // 3. Convertimos a minutos totales
-    let totalMinutos = Math.floor(diffMs / 60000);
-
-    // 4. EL AJUSTE CLAVE:
-    // Si la diferencia es mayor a 300 minutos (5 horas), es probable que JS
-    // esté comparando una fecha "Local" contra una "UTC".
-    // Si el contador te daba 300 min de más, restamos 300. 
-    // Si te daba 300 de menos (números negativos), sumamos 300.
-    // Basado en tus casos, JS está interpretando la fecha de la DB con 5 horas de adelanto.
-    if (totalMinutos >= 300) {
-      totalMinutos -= 300; 
-    } else if (totalMinutos < 0) {
-      totalMinutos += 300;
-    }
-
-    // Seguridad para errores de casteo
-    if (isNaN(totalMinutos)) return "...";
-    if (totalMinutos <= 0) return "1 min";
-    
-    // 5. Formateo de salida (Soporta días si es necesario)
-    if (totalMinutos >= 60) {
-      const horas = Math.floor(totalMinutos / 60);
-      const mins = totalMinutos % 60;
-      
-      if (horas >= 24) {
-        const dias = Math.floor(horas / 24);
-        const horasRestantes = horas % 24;
-        return `${dias}d ${horasRestantes}h ${mins}m`;
-      }
-      
-      return `${horas}h ${mins}m`;
-    }
-    
-    return `${totalMinutos} min`;
-  } catch (e) {
-    console.error("Error calculando tiempo:", e);
-    return "...";
-  }
-};
+  useEffect(() => {
+    fetchPedidosActivos();
+  }, [fetchPedidosActivos]);
 
   if (loading) return (
-    <div className="h-full flex items-center justify-center">
-      <Loader2 className="animate-spin text-blue-600" size={40} />
+    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+      <TableSkeleton rows={3} columns={4} />
     </div>
   );
 
@@ -101,16 +57,20 @@ export default function MisPedidosPage() {
 
       <div className="grid grid-cols-1 gap-4">
         {pedidos.length === 0 ? (
-          <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center">
-            <Utensils className="mx-auto text-slate-300 mb-4" size={48} />
-            <p className="text-slate-500 font-medium">No tienes pedidos abiertos en este momento.</p>
-            <button 
-              onClick={() => router.push('/mesero/salon')}
-              className="mt-4 text-blue-600 font-bold hover:underline"
-            >
-              Ir al salón para abrir una mesa
-            </button>
-          </div>
+          <EmptyState
+            icon={Utensils}
+            title="Sin pedidos abiertos"
+            description="No tienes pedidos abiertos en este momento."
+            action={
+              <button
+                type="button"
+                onClick={() => router.push('/mesero/salon')}
+                className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                Ir al salón para abrir una mesa
+              </button>
+            }
+          />
         ) : (
           pedidos.map((p) => (
             <div 
@@ -124,7 +84,7 @@ export default function MisPedidosPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-slate-600 text-xs font-bold uppercase tracking-wider">
-                    <Clock size={12} /> {calcularTiempo(p.fecha_creacion)}
+                    <Clock size={12} /> {timeAgo(p.fecha_creacion)}
                   </div>
                   <p className="text-slate-500 text-sm">{p.detalles.length} platos en comanda</p>
                 </div>
@@ -133,7 +93,7 @@ export default function MisPedidosPage() {
               {/* Monto Acumulado */}
               <div className="text-center md:text-right mb-4 md:mb-0">
                 <p className="text-xs font-bold text-slate-600 uppercase">Total actual</p>
-                <p className="text-2xl font-black text-slate-800">S/ {Number(p.total).toFixed(2)}</p>
+                <p className="text-2xl font-black text-slate-800">{formatCurrency(p.total)}</p>
               </div>
 
               {/* Acciones Rápidas */}

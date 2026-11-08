@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer, Loader2, QrCode } from 'lucide-react';
+import { http } from '@/lib/http';
 
 export default function GenerarQRPage() {
   const [mesas, setMesas] = useState<any[]>([]);
@@ -9,9 +10,9 @@ export default function GenerarQRPage() {
   const [origen, setOrigen] = useState('');
 
   useEffect(() => {
-    fetch('/api/mesas')
-      .then(res => res.json())
-      .then(data => {
+    http
+      .get<any[]>('/api/mesas')
+      .then((data) => {
         setOrigen(window.location.origin);
         setMesas(Array.isArray(data) ? data : []);
       })

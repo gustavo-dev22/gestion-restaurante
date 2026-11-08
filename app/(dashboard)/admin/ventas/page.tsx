@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Loader2 } from "lucide-react";
+import { Eye, Receipt } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
 import { DataTable } from "@/components/ui/DataTable";
 import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { http } from "@/lib/http";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export default function VentasPage() {
   const [ventas, setVentas] = useState<any[]>([]);
@@ -19,8 +23,7 @@ export default function VentasPage() {
     const fetchConFiltro = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/admin/ventas?rango=${rango}`);
-        const data = await res.json();
+        const data = await http.get<any[]>(`/api/admin/ventas?rango=${rango}`);
         setVentas(Array.isArray(data) ? data : []);
       } catch {
         setVentas([]);
@@ -41,7 +44,7 @@ export default function VentasPage() {
         actions={
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-right">
             <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Total Ingresos</p>
-            <p className="text-2xl font-black text-emerald-700">S/ {totalIngresos.toFixed(2)}</p>
+            <p className="text-2xl font-black text-emerald-700">{formatCurrency(totalIngresos)}</p>
           </div>
         }
       />
@@ -76,14 +79,23 @@ export default function VentasPage() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-20 text-center text-slate-500">
-                  <Loader2 className="inline animate-spin" />
+                <td colSpan={5} className="p-4">
+                  <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
                 </td>
               </tr>
             ) : ventas.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-20 text-center text-slate-500">
-                  No hay ventas registradas para este periodo.
+                <td colSpan={5}>
+                  <EmptyState
+                    icon={Receipt}
+                    title="Sin ventas en este periodo"
+                    description="No se encontraron pedidos liquidados para el rango seleccionado."
+                  />
                 </td>
               </tr>
             ) : (
@@ -93,13 +105,13 @@ export default function VentasPage() {
                     #{String(venta.id).padStart(4, "0")}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">
-                    {new Date(venta.fecha_creacion).toLocaleString("es-PE", { timeZone: "UTC" })}
+                    {formatDateTime(venta.fecha_creacion)}
                   </td>
                   <td className="px-6 py-4">
                     <Badge tone="neutral">{venta.mesa.numero}</Badge>
                   </td>
                   <td className="px-6 py-4 font-bold text-slate-800">
-                    S/ {Number(venta.total).toFixed(2)}
+                    {formatCurrency(venta.total)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-center">
@@ -138,7 +150,7 @@ export default function VentasPage() {
             <div className="mb-4 flex justify-between text-sm">
               <span className="text-slate-600">Fecha:</span>
               <span className="font-semibold text-slate-800">
-                {new Date(detalle.fecha_creacion).toLocaleString("es-PE", { timeZone: "UTC" })}
+                {formatDateTime(detalle.fecha_creacion)}
               </span>
             </div>
 
@@ -149,7 +161,7 @@ export default function VentasPage() {
                     {item.cantidad} x {item.producto.nombre}
                   </span>
                   <span className="font-semibold text-slate-800">
-                    S/ {(item.cantidad * Number(item.precio_unitario)).toFixed(2)}
+                    {formatCurrency(item.cantidad * Number(item.precio_unitario))}
                   </span>
                 </div>
               ))}
@@ -157,7 +169,7 @@ export default function VentasPage() {
 
             <div className="mt-4 flex justify-between border-t-2 border-slate-800 pt-3 text-lg">
               <span className="font-bold text-slate-800">Total</span>
-              <span className="font-black text-blue-700">S/ {Number(detalle.total).toFixed(2)}</span>
+              <span className="font-black text-blue-700">{formatCurrency(detalle.total)}</span>
             </div>
           </div>
         )}

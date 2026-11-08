@@ -3,6 +3,8 @@ import { useEffect, useState, use } from 'react';
 import { Utensils, ShoppingCart, Plus, RefreshCw, Check, AlertCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError, toastInfo } from '@/components/ui/Toast';
+import { http } from '@/lib/http';
+import { formatCurrency } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -26,12 +28,11 @@ export default function MenuDigitalPage({ params }: PageProps) {
           setLoading(true);
 
           // 1. Verificar estado de la mesa primero
-          const resMesa = await fetch(`/api/public/mesas/${mesaId}`);
-          const dataMesa = await resMesa.json();
+          const dataMesa = await http.get<any>(`/api/public/mesas/${mesaId}`, {
+            skipAuthRedirect: true,
+          });
 
-          console.log("DATOS DE LA MESA RECIBIDOS:", dataMesa);
-
-          if (dataMesa.error) {
+          if (dataMesa?.error) {
             setEstadoMesa('Error');
             return;
           }
@@ -40,12 +41,14 @@ export default function MenuDigitalPage({ params }: PageProps) {
           setEstadoMesa(dataMesa.estado);
 
           if (dataMesa.estado === 'Libre') {
-            const resProd = await fetch('/api/public/productos');
-            const dataProd = await resProd.json();
-            setProductos(dataProd);
+            const dataProd = await http.get<any[]>('/api/public/productos', {
+              skipAuthRedirect: true,
+            });
+            setProductos(Array.isArray(dataProd) ? dataProd : []);
           }
         } catch (error) {
           console.error("Error al cargar datos:", error);
+          setEstadoMesa('Error');
         } finally {
           setLoading(false);
         }
@@ -69,13 +72,9 @@ export default function MenuDigitalPage({ params }: PageProps) {
         const total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
         setSending(true);
         try {
-            const res = await fetch('/api/public/pedido', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mesaId, items: carrito, total }),
+            await http.post('/api/public/pedido', { mesaId, items: carrito, total }, {
+                skipAuthRedirect: true,
             });
-
-            if (!res.ok) throw new Error();
 
             setConfirmOpen(false);
             setCarrito([]);
@@ -153,7 +152,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                 <p className="text-xs text-slate-600 mt-1 line-clamp-2">{prod.descripcion}</p>
               </div>
               <div className="flex justify-between items-center mt-2">
-                <span className="font-black text-blue-600 italic">S/ {Number(prod.precio).toFixed(2)}</span>
+                <span className="font-black text-blue-600 italic">{formatCurrency(prod.precio)}</span>
                 <button 
                   type="button"
                   onClick={() => agregarAlCarrito(prod)}
@@ -187,7 +186,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                     <span className="text-sm font-bold text-slate-700">{item.nombre}</span>
                     </div>
                     <span className="text-sm font-black text-slate-600">
-                    S/ {(item.precio * item.cantidad).toFixed(2)}
+                    {formatCurrency(item.precio * item.cantidad)}
                     </span>
                 </div>
                 ))}
@@ -201,7 +200,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
             >
                 <div className="flex items-center gap-3">
                 <ShoppingCart size={20} className="text-blue-400" />
-                <span className="font-black text-lg">CONFIRMAR S/ {carrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0).toFixed(2)}</span>
+                <span className="font-black text-lg">CONFIRMAR {formatCurrency(carrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0))}</span>
                 </div>
                 <Check size={20} />
             </button>
@@ -214,9 +213,9 @@ export default function MenuDigitalPage({ params }: PageProps) {
             onClose={() => setConfirmOpen(false)}
             onConfirm={confirmarPedido}
             title="¿Confirmar pedido?"
-            description={`Total a pagar: S/ ${carrito
-                .reduce((acc, item) => acc + item.precio * item.cantidad, 0)
-                .toFixed(2)}`}
+            description={`Total a pagar: ${formatCurrency(
+                carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0)
+            )}`}
             confirmLabel="Sí, enviar pedido"
             variant="default"
             loading={sending}

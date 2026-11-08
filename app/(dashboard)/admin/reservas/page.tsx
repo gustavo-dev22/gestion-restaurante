@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
+import { http } from '@/lib/http';
+import { formatDateTime } from '@/lib/utils';
 
 export default function GestionReservasPage() {
   const [reservas, setReservas] = useState<any[]>([]);
@@ -14,8 +16,7 @@ export default function GestionReservasPage() {
 
   const fetchReservas = async () => {
     try {
-      const res = await fetch('/api/admin/reservas');
-      const data = await res.json();
+      const data = await http.get<any[]>('/api/admin/reservas');
       setReservas(Array.isArray(data) ? data : []);
     } catch {
       setReservas([]);
@@ -30,13 +31,11 @@ export default function GestionReservasPage() {
     if (!pending) return;
     setUpdating(true);
     try {
-      const res = await fetch('/api/admin/reservas', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: pending.id, nuevoEstado: pending.estado, mesaId: pending.mesaId }),
+      await http.patch('/api/admin/reservas', {
+        id: pending.id,
+        nuevoEstado: pending.estado,
+        mesaId: pending.mesaId,
       });
-
-      if (!res.ok) throw new Error();
 
       toastSuccess('Reserva actualizada', `Reserva marcada como ${pending.estado}.`);
       setPending(null);
@@ -77,7 +76,7 @@ export default function GestionReservasPage() {
               <h3 className="text-xl font-bold text-slate-800 mb-1">{r.clienteNombre}</h3>
               <div className="space-y-2 mb-6">
                 <p className="text-sm text-slate-500 flex items-center gap-2"><Phone size={14}/> {r.clienteTelefono}</p>
-                <p className="text-sm text-slate-500 flex items-center gap-2"><Clock size={14}/> {new Date(r.fechaReserva).toLocaleString('es-PE', { timeZone: 'UTC' })}</p>
+                <p className="text-sm text-slate-600 flex items-center gap-2"><Clock size={14}/> {formatDateTime(r.fechaReserva)}</p>
                 <p className="text-sm text-slate-500 flex items-center gap-2"><Users size={14}/> {r.numPersonas} Personas - <b>Mesa {r.mesa.numero}</b></p>
               </div>
 

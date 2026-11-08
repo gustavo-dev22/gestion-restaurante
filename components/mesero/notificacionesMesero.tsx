@@ -6,7 +6,8 @@ import { useAuthStore } from "@/lib/store";
 import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
-import { formatTime } from "@/lib/format";
+import { formatCurrency, formatTime } from "@/lib/utils";
+import { http } from "@/lib/http";
 
 interface PedidoPendiente {
   id: number;
@@ -23,8 +24,7 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
 
   const buscarNuevosPedidos = useCallback(async () => {
     try {
-      const res = await fetch("/api/mesero/pendientes-qr");
-      const data = await res.json();
+      const data = await http.get<PedidoPendiente[]>("/api/mesero/pendientes-qr", { timeoutMs: 8_000 });
       const lista: PedidoPendiente[] = Array.isArray(data) ? data : [];
 
       setPendientes((prev) => {
@@ -50,17 +50,11 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
   const aceptarPedido = async (pedido: PedidoPendiente) => {
     setAccepting(true);
     try {
-      const res = await fetch("/api/mesero/confirmar", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pedidoId: pedido.id,
-          usuarioId: usuario.id,
-          nombreMesero: usuario.nombreCompleto,
-        }),
+      await http.patch("/api/mesero/confirmar", {
+        pedidoId: pedido.id,
+        usuarioId: usuario.id,
+        nombreMesero: usuario.nombreCompleto,
       });
-
-      if (!res.ok) throw new Error();
 
       toastSuccess("Mesa asignada", `Ahora atiendes la Mesa ${pedido.mesa.numero}.`);
       setModalOpen(false);
@@ -131,7 +125,7 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
                 </span>
                 <span className="text-xs text-slate-600">{formatTime(pedido.fecha_creacion)}</span>
               </div>
-              <span className="shrink-0 font-black text-blue-700">S/ {Number(pedido.total).toFixed(2)}</span>
+              <span className="shrink-0 font-black text-blue-700">{formatCurrency(pedido.total)}</span>
             </li>
           ))}
         </ul>

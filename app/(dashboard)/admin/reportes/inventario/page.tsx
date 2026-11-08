@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Package, DollarSign, ArrowDownCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { http } from '@/lib/http';
+import { formatCurrency } from '@/lib/utils';
 import { DataTable } from '@/components/ui/DataTable';
 
 export default function InventarioReportePage() {
@@ -13,9 +15,7 @@ export default function InventarioReportePage() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/admin/reportes/inventario');
-      if (!res.ok) throw new Error('Respuesta no válida');
-      const json = await res.json();
+      const json = await http.get<any>('/api/admin/reportes/inventario');
       if (!json?.resumen || !Array.isArray(json?.critico)) {
         throw new Error('Datos incompletos');
       }
@@ -64,7 +64,7 @@ export default function InventarioReportePage() {
         <div className="bg-white border-2 border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-black text-slate-600 uppercase tracking-widest mb-1">Valor en Bodega</p>
-            <h3 className="text-3xl font-black text-slate-800">S/ {data.resumen.valorizacionBodega}</h3>
+            <h3 className="text-3xl font-black text-slate-800">{formatCurrency(data.resumen.valorizacionBodega)}</h3>
           </div>
           <DollarSign size={40} className="text-slate-200" />
         </div>
