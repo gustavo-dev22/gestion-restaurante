@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { expireStaleQrOrders } from '@/lib/qr-orders';
 
 const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
 
@@ -7,6 +8,8 @@ class MesaNoDisponibleError extends Error {}
 
 export async function GET(request: Request) {
   try {
+    await expireStaleQrOrders();
+
     const { searchParams } = new URL(request.url);
     const mesaId = Number(searchParams.get('mesaId'));
 
@@ -34,6 +37,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await expireStaleQrOrders();
+
     const body = await request.json();
     const mesaId = Number(body?.mesaId);
     const items = Array.isArray(body?.items) ? body.items : [];

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { expireStaleQrOrders } from '@/lib/qr-orders';
 
 const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
 
@@ -8,6 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await expireStaleQrOrders();
+
     const resolvedParams = await params;
     const idMesa = parseInt(resolvedParams.id);
 

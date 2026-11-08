@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, BellOff, Loader2, Volume2, X } from "lucide-react";
-import { useAuthStore } from "@/lib/store";
+import { Bell, BellOff, Volume2, X } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { toastSuccess, toastError } from "@/components/ui/Toast";
+import { toastSuccess, toastWarning } from "@/components/ui/Toast";
 import { formatCurrency, formatTime } from "@/lib/utils";
-import { http } from "@/lib/http";
+import { http, getErrorMessage } from "@/lib/http";
+import { QR_PENDING_TTL_MS } from "@/lib/order-config";
 
 interface PedidoPendiente {
   id: number;
@@ -16,14 +16,14 @@ interface PedidoPendiente {
   mesa: { numero: string };
 }
 
-export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAceptado: () => void }) {
+export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAceptado?: () => void }) {
   const [pendientes, setPendientes] = useState<PedidoPendiente[]>([]);
   const [descartados, setDescartados] = useState<Set<number>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
-  const [accepting, setAccepting] = useState(false);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const idsConocidos = useRef<Set<number>>(new Set());
-  const usuario = useAuthStore((state) => state.user);
 
   // El navegador solo permite reproducir audio tras una interacción del usuario.
   useEffect(() => {
@@ -35,6 +35,13 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
       document.removeEventListener("keydown", unlock);
     };
   }, []);
+
+  // Actualiza el contador de expiración mientras el modal está abierto.
+  useEffect(() => {
+    if (!modalOpen) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [modalOpen]);
 
   const reproducirAlerta = useCallback(() => {
     if (!audioEnabled) return;
@@ -54,7 +61,6 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
 
       idsConocidos.current = new Set(lista.map((pedido) => pedido.id));
       setPendientes(lista);
-      // Limpia descartes de pedidos que ya no están pendientes.
       setDescartados((prev) => {
         const vigentes = new Set(lista.map((pedido) => pedido.id));
         return new Set(Array.from(prev).filter((id) => vigentes.has(id)));
@@ -66,7 +72,7 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
 
   useEffect(() => {
     buscarNuevosPedidos();
-    const interval = setInterval(buscarNuevosPedidos, 10000);
+    const interval = setInterval(buscarNuevosPedidos, 10_000);
     return () => clearInterval(interval);
   }, [buscarNuevosPedidos]);
 
@@ -76,22 +82,21 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
   );
 
   const aceptarPedido = async (pedido: PedidoPendiente) => {
-    setAccepting(true);
+    setClaimingId(pedido.id);
     try {
-      await http.patch("/api/mesero/confirmar", {
-        pedidoId: pedido.id,
-        usuarioId: usuario.id,
-        nombreMesero: usuario.nombreCompleto,
-      });
-
+      await http.patch("/api/mesero/confirmar", { pedidoId: pedido.id });
       toastSuccess("Mesa asignada", `Ahora atiendes la Mesa ${pedido.mesa.numero}.`);
-      setModalOpen(false);
-      onPedidoAceptado();
-      buscarNuevosPedidos();
-    } catch {
-      toastError("No se pudo aceptar el pedido", "Intenta nuevamente en unos segundos.");
+      onPedidoAceptado?.();
+      window.dispatchEvent(new Event("gr:mesas-updated"));
+      await buscarNuevosPedidos();
+    } catch (error) {
+      toastWarning(
+        "No se pudo tomar el pedido",
+        getErrorMessage(error, "Otro mesero pudo haberlo tomado o el pedido expiró.")
+      );
+      await buscarNuevosPedidos();
     } finally {
-      setAccepting(false);
+      setClaimingId(null);
     }
   };
 
@@ -101,6 +106,14 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
       visibles.forEach((pedido) => next.add(pedido.id));
       return next;
     });
+  };
+
+  const restanteLabel = (fecha: string) => {
+    const restante = QR_PENDING_TTL_MS - (now - new Date(fecha).getTime());
+    if (restante <= 0) return "Expirando...";
+    const minutos = Math.floor(restante / 60_000);
+    const segundos = Math.floor((restante % 60_000) / 1000);
+    return `Expira en ${minutos}:${String(segundos).padStart(2, "0")}`;
   };
 
   if (visibles.length === 0) return null;
@@ -124,11 +137,12 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
               type="button"
               onClick={() => {
                 setAudioEnabled(true);
+                setNow(Date.now());
                 setModalOpen(true);
               }}
               className="mt-0.5 text-sm font-bold text-slate-800 underline hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              Ver y aceptar
+              Ver y tomar
             </button>
             <p className="mt-1 flex items-center gap-1 text-xs text-slate-600">
               {audioEnabled ? <Volume2 size={12} /> : <BellOff size={12} />}
@@ -150,8 +164,8 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Pedidos por confirmar"
-        description="Selecciona el pedido que deseas atender."
+        title="Pedidos QR por tomar"
+        description="Cualquier mesero puede tomarlos. Solo el primero que confirme queda asignado."
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
@@ -161,34 +175,43 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
               type="button"
               variant="success"
               onClick={() => visibles[0] && aceptarPedido(visibles[0])}
-              loading={accepting}
+              loading={claimingId !== null && claimingId === visibles[0]?.id}
             >
-              Aceptar el más antiguo
+              Tomar el más antiguo
             </Button>
           </>
         }
       >
-        <ul className="max-h-60 space-y-2 overflow-y-auto">
+        <ul className="max-h-72 space-y-2 overflow-y-auto">
           {visibles.map((pedido) => (
             <li
               key={pedido.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
+              className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="min-w-0 text-left">
+              <div className="min-w-0">
                 <span className="block text-sm font-black uppercase text-slate-800">
                   Mesa {pedido.mesa.numero}
                 </span>
-                <span className="text-xs text-slate-600">{formatTime(pedido.fecha_creacion)}</span>
+                <span className="text-xs text-slate-600">
+                  {formatTime(pedido.fecha_creacion)} · {restanteLabel(pedido.fecha_creacion)}
+                </span>
               </div>
-              <span className="shrink-0 font-black text-blue-700">{formatCurrency(pedido.total)}</span>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <span className="font-black text-blue-700">{formatCurrency(pedido.total)}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="success"
+                  onClick={() => aceptarPedido(pedido)}
+                  loading={claimingId === pedido.id}
+                  disabled={claimingId !== null && claimingId !== pedido.id}
+                >
+                  Tomar
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
-        {accepting && (
-          <p className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-            <Loader2 size={16} className="animate-spin" /> Asignando mesa...
-          </p>
-        )}
       </Modal>
     </>
   );

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
-import { toastSuccess, toastError } from "@/components/ui/Toast";
+import { toastSuccess, toastError, toastInfo } from "@/components/ui/Toast";
 import { http } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 
@@ -157,6 +157,10 @@ export default function MenuDigitalPage({ params }: PageProps) {
           setPedidoActivo(null);
           setEstadoMesa("Libre");
           await cargarProductos();
+          toastInfo(
+            "Pedido finalizado",
+            "Tu pedido ya no está activo. La mesa está disponible para un nuevo pedido."
+          );
         }
       } catch {
         // Se reintenta en el siguiente ciclo.

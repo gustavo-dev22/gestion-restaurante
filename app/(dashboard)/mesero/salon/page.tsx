@@ -1,10 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { LayoutGrid, Loader2, Users, CalendarCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
-import NotificacionesMesero from '@/components/mesero/notificacionesMesero';
-import LlamadosMesero from '@/components/mesero/llamadosMesero';
 import { PageHeader } from '@/components/ui/PageHeader';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastInfo, toastWarning, toastError } from '@/components/ui/Toast';
@@ -17,7 +15,7 @@ export default function SalonMeseroPage() {
   const router = useRouter();
   const usuario = useAuthStore((state) => state.user);
 
-  const fetchMesas = async () => {
+  const fetchMesas = useCallback(async () => {
     try {
       const data = await http.get<any[]>('/api/mesas');
       setMesas(Array.isArray(data) ? data : []);
@@ -26,9 +24,18 @@ export default function SalonMeseroPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchMesas(); }, []);
+  useEffect(() => {
+    fetchMesas();
+  }, [fetchMesas]);
+
+  // Refresca el salón cuando otro componente (p. ej. la alerta QR) acepta una mesa.
+  useEffect(() => {
+    const handler = () => fetchMesas();
+    window.addEventListener('gr:mesas-updated', handler);
+    return () => window.removeEventListener('gr:mesas-updated', handler);
+  }, [fetchMesas]);
 
   // LÓGICA DE COLORES DINÁMICOS
   const getEstiloMesa = (estado: string) => {
@@ -115,13 +122,10 @@ export default function SalonMeseroPage() {
 
   return (
     <div className="p-6">
-      <NotificacionesMesero onPedidoAceptado={fetchMesas} />
       <PageHeader
         title="Salón Interactivo"
         description="Selecciona una mesa para gestionar el servicio"
       />
-
-      <LlamadosMesero />
 
       {loading ? (
         <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />

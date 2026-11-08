@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth/session';
+import { expireStaleQrOrders } from '@/lib/qr-orders';
 
 export async function PATCH(request: Request) {
   try {
@@ -16,31 +17,15 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Pedido inválido' }, { status: 400 });
     }
 
-    const pedido = await prisma.pedido.findUnique({
-      where: { id },
-      select: { id: true, estado: true, usuarioId: true },
-    });
+    await expireStaleQrOrders();
 
-    if (!pedido) {
-      return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
-    }
-
-    if (pedido.estado !== 'Por Confirmar') {
-      return NextResponse.json(
-        { error: 'ESTADO_INVALIDO', message: 'El pedido ya fue confirmado o no está pendiente.' },
-        { status: 409 }
-      );
-    }
-
-    if (pedido.usuarioId && pedido.usuarioId !== session.sub) {
-      return NextResponse.json(
-        { error: 'YA_ASIGNADO', message: 'Otro mesero ya tomó este pedido.' },
-        { status: 409 }
-      );
-    }
-
-    const pedidoActualizado = await prisma.pedido.update({
-      where: { id },
+    // Reclamo atómico: solo un mesero puede pasar el pedido a "Pendiente".
+    const claimed = await prisma.pedido.updateMany({
+      where: {
+        id,
+        estado: 'Por Confirmar',
+        OR: [{ usuarioId: null }, { usuarioId: session.sub }],
+      },
       data: {
         estado: 'Pendiente',
         usuarioId: session.sub,
@@ -48,6 +33,34 @@ export async function PATCH(request: Request) {
       },
     });
 
+    if (claimed.count === 0) {
+      const actual = await prisma.pedido.findUnique({
+        where: { id },
+        select: { estado: true, usuarioId: true },
+      });
+
+      if (!actual) {
+        return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
+      }
+      if (actual.estado === 'Expirado') {
+        return NextResponse.json(
+          { error: 'EXPIRADO', message: 'El pedido expiró y la mesa fue liberada.' },
+          { status: 409 }
+        );
+      }
+      if (actual.usuarioId && actual.usuarioId !== session.sub) {
+        return NextResponse.json(
+          { error: 'YA_ASIGNADO', message: 'Otro mesero ya tomó este pedido.' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'ESTADO_INVALIDO', message: 'El pedido ya no está pendiente de confirmación.' },
+        { status: 409 }
+      );
+    }
+
+    const pedidoActualizado = await prisma.pedido.findUnique({ where: { id } });
     return NextResponse.json(pedidoActualizado);
   } catch (error) {
     console.error(error);

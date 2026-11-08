@@ -6,7 +6,7 @@ export async function GET() {
   try {
     // 1. Obtenemos todos los pedidos con su fecha y total
     const pedidos = await prisma.pedido.findMany({
-      where: { estado: { notIn: ['Llamado', 'Atendido'] } },
+      where: { estado: { notIn: ['Llamado', 'Atendido', 'Expirado'] } },
       select: {
         fecha_creacion: true,
         total: true
@@ -50,7 +50,7 @@ export async function GET() {
         maxPedidos: horaPico.cantidad
       }
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al procesar reporte' }, { status: 500 });
   }
 }

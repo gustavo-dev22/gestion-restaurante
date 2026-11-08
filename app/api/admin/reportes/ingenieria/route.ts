@@ -6,6 +6,7 @@ export async function GET() {
     // 1. Obtener ventas totales por producto
     const ventas = await prisma.pedidoDetalle.groupBy({
       by: ['productoId'],
+      where: { pedido: { estado: { notIn: ['Expirado'] } } },
       _sum: {
         cantidad: true,
       }
@@ -52,7 +53,7 @@ export async function GET() {
       matriz,
       promedioVentas: promedioVentas.toFixed(2)
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al calcular matriz' }, { status: 500 });
   }
 }
