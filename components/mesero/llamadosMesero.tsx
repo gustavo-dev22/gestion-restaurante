@@ -38,7 +38,7 @@ export default function LlamadosMesero() {
     try {
       await http.patch("/api/mesero/llamados", { pedidoId: id });
       setLlamados((prev) => prev.filter((llamado) => llamado.id !== id));
-      toastSuccess("Solicitud atendida", "El cliente fue notificado.");
+      toastSuccess("Solicitud atendida", "El cliente verá el aviso en su pantalla.");
     } catch {
       toastError("No se pudo atender la solicitud", "Intenta nuevamente en unos segundos.");
     } finally {

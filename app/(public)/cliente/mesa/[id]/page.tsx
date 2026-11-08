@@ -51,6 +51,33 @@ interface PedidoActivo {
   }[];
 }
 
+interface Llamado {
+  id: number;
+  estado: string;
+  nombreMesero?: string | null;
+}
+
+function LlamadoStatus({ llamado }: { llamado: Llamado | null }) {
+  if (!llamado) return null;
+
+  const atendido = llamado.estado === "Atendido";
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-xl ${
+        atendido ? "bg-emerald-600" : "bg-slate-900"
+      }`}
+    >
+      {atendido ? <Check size={16} /> : <Loader2 size={16} className="animate-spin" />}
+      {atendido
+        ? `${llamado.nombreMesero || "Un mesero"} viene en camino`
+        : "Solicitud enviada. Esperando a un mesero..."}
+    </div>
+  );
+}
+
 function ProductImage({ src, alt }: { src?: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
 
@@ -94,6 +121,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
   const [sending, setSending] = useState(false);
   const [calling, setCalling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [llamado, setLlamado] = useState<Llamado | null>(null);
 
   const cargarProductos = useCallback(async () => {
     const data = await http.get<Producto[]>("/api/public/productos", { skipAuthRedirect: true });
@@ -121,6 +149,16 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
       setNumeroMesa(dataMesa.numero);
       setEstadoMesa(dataMesa.estado);
+
+      try {
+        const llamadaActiva = await http.get<Llamado | null>(
+          `/api/public/llamar-mesero?mesaId=${mesaId}`,
+          { skipAuthRedirect: true }
+        );
+        if (llamadaActiva?.estado === "Llamado") setLlamado(llamadaActiva);
+      } catch {
+        // Si falla, no bloquea la carga de la mesa.
+      }
 
       const activo = await cargarEstadoPedido();
       if (activo) {
@@ -171,6 +209,49 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
     return () => clearInterval(interval);
   }, [pedidoActivo, cargarEstadoPedido, cargarProductos]);
+
+  // Seguimiento del llamado al mesero: avisa al cliente cuando es atendido.
+  useEffect(() => {
+    if (!llamado || llamado.estado !== "Llamado") return;
+
+    let active = true;
+    const consultar = async () => {
+      try {
+        const data = await http.get<Llamado | null>(
+          `/api/public/llamar-mesero?id=${llamado.id}&mesaId=${mesaId}`,
+          { skipAuthRedirect: true }
+        );
+
+        if (!active) return;
+
+        if (data?.estado === "Atendido") {
+          setLlamado(data);
+          toastSuccess(
+            "¡Mesero en camino!",
+            `${data.nombreMesero || "Un mesero"} atendió tu solicitud.`
+          );
+        } else if (!data) {
+          setLlamado(null);
+        }
+      } catch {
+        // Se reintenta en el siguiente ciclo.
+      }
+    };
+
+    consultar();
+    const interval = setInterval(consultar, 5000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [llamado, mesaId]);
+
+  // El aviso de "mesero en camino" desaparece solo después de un tiempo.
+  useEffect(() => {
+    if (llamado?.estado !== "Atendido") return;
+    const timeout = setTimeout(() => setLlamado(null), 30_000);
+    return () => clearTimeout(timeout);
+  }, [llamado]);
 
   const grupos = useMemo(() => {
     const mapa = new Map<
@@ -249,12 +330,17 @@ export default function MenuDigitalPage({ params }: PageProps) {
   const llamarMesero = async () => {
     setCalling(true);
     try {
-      const data = await http.post<{ success: boolean; message: string }>(
-        "/api/public/llamar-mesero",
-        { mesaId },
-        { skipAuthRedirect: true }
-      );
+      const data = await http.post<{
+        success: boolean;
+        message: string;
+        solicitudId?: number;
+      }>("/api/public/llamar-mesero", { mesaId }, { skipAuthRedirect: true });
+
       toastSuccess("Solicitud enviada", data.message);
+
+      if (data.solicitudId) {
+        setLlamado({ id: data.solicitudId, estado: "Llamado" });
+      }
     } catch {
       toastError("No se pudo avisar al mesero", "Intenta nuevamente o llama al personal.");
     } finally {
@@ -278,6 +364,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
     return (
       <div className="min-h-screen bg-slate-50 pb-10">
+        <LlamadoStatus llamado={llamado} />
         <div className="rounded-b-[2.5rem] bg-slate-900 p-8 text-white shadow-xl">
           <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Mesa</p>
           <h1 className="text-4xl font-black tracking-tight">{numeroMesa || pedidoActivo.mesa.numero}</h1>
@@ -356,6 +443,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
   if (estadoMesa !== "Libre") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white p-8 text-center">
+        <LlamadoStatus llamado={llamado} />
         <div className="mb-6 rounded-full bg-rose-100 p-6">
           <AlertCircle size={60} className="text-rose-600" aria-hidden="true" />
         </div>
@@ -386,6 +474,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
   // Menú digital
   return (
     <div className="min-h-screen bg-slate-50 pb-36">
+      <LlamadoStatus llamado={llamado} />
       <div className="mb-6 rounded-b-[2.5rem] bg-slate-900 p-8 text-white shadow-xl">
         <h1 className="text-3xl font-black italic tracking-tighter">CARTA DIGITAL</h1>
         <p className="text-sm font-bold uppercase tracking-widest text-slate-300">

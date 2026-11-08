@@ -2,6 +2,38 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const DOS_MINUTOS_MS = 2 * 60 * 1000;
+const VENTANA_CONSULTA_MS = 30 * 60 * 1000;
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const mesaId = Number(searchParams.get("mesaId"));
+    const id = Number(searchParams.get("id"));
+
+    if (!mesaId || Number.isNaN(mesaId)) {
+      return NextResponse.json({ error: "mesaId inválido" }, { status: 400 });
+    }
+
+    const llamado = id && !Number.isNaN(id)
+      ? await prisma.pedido.findFirst({
+          where: { id, mesaId, estado: { in: ["Llamado", "Atendido"] } },
+          select: { id: true, estado: true, nombreMesero: true, fecha_creacion: true },
+        })
+      : await prisma.pedido.findFirst({
+          where: {
+            mesaId,
+            estado: { in: ["Llamado", "Atendido"] },
+            fecha_creacion: { gte: new Date(Date.now() - VENTANA_CONSULTA_MS) },
+          },
+          select: { id: true, estado: true, nombreMesero: true, fecha_creacion: true },
+          orderBy: { fecha_creacion: "desc" },
+        });
+
+    return NextResponse.json(llamado ?? null);
+  } catch {
+    return NextResponse.json({ error: "Error al consultar el llamado" }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {
