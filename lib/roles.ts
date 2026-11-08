@@ -114,3 +114,40 @@ export function getHomePath(user: AuthUserLike | null | undefined): string {
 
   return "/dashboard";
 }
+
+const SECTIONS = ["admin", "mesero", "cocina"] as const;
+type Section = (typeof SECTIONS)[number];
+
+function isSection(value: string): value is Section {
+  return (SECTIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Secciones a las que el usuario puede acceder, derivadas de su rol SASI y
+ * de los objetos/menús asignados. El administrador accede a todas.
+ */
+export function getSections(user: AuthUserLike | null | undefined): string[] {
+  const role = getRoleName(user).toLowerCase();
+
+  if (/(admin|administrador|gerente|dueño|dueno)/.test(role)) {
+    return [...SECTIONS];
+  }
+
+  const sections = new Set<string>();
+
+  for (const path of getAllowedPaths(user)) {
+    const [, segment] = path.split("/");
+    if (segment && isSection(segment)) sections.add(segment);
+  }
+
+  if (/(mesero|waiter|salón|salon|atención|atencion)/.test(role)) sections.add("mesero");
+  if (/(cocina|chef|cocinero|bar|bebidas|postres)/.test(role)) sections.add("cocina");
+
+  return Array.from(sections);
+}
+
+export function sectionOfPath(pathname: string): Section | null {
+  const segment = pathname.split("/").filter(Boolean)[0];
+  return segment && isSection(segment) ? segment : null;
+}
+

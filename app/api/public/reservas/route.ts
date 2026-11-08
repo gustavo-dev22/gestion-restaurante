@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseLimaDateTime } from "@/lib/utils";
 
-const RESERVA_VENTANA_MS = 60 * 60 * 1000;
+const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
   try {
@@ -13,8 +14,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ disponible: false, message: "Parámetros inválidos." }, { status: 400 });
     }
 
-    const fecha = new Date(fechaParam);
-    if (Number.isNaN(fecha.getTime())) {
+    const fecha = parseLimaDateTime(fechaParam);
+    if (!fecha) {
       return NextResponse.json({ disponible: false, message: "Fecha inválida." }, { status: 400 });
     }
 

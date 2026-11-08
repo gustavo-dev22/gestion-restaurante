@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { parseLimaDateTime } from '@/lib/utils';
 
-const RESERVA_VENTANA_MS = 60 * 60 * 1000;
+const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
 
 export async function POST(request: Request) {
   try {
@@ -10,13 +11,13 @@ export async function POST(request: Request) {
 
     const personas = parseInt(numPersonas, 10);
     const mesaNumerica = parseInt(mesaId, 10);
-    const fecha = new Date(fechaReserva);
+    const fecha = parseLimaDateTime(fechaReserva);
 
-    if (!clienteNombre?.trim() || !clienteTelefono || !fechaReserva || !personas || !mesaNumerica) {
+    if (!clienteNombre?.trim() || !clienteTelefono || !fecha || !personas || !mesaNumerica) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
     }
 
-    if (Number.isNaN(fecha.getTime()) || fecha.getTime() < Date.now()) {
+    if (fecha.getTime() < Date.now()) {
       return NextResponse.json(
         { error: 'FECHA_INVALIDA', message: 'Selecciona una fecha y hora futura.' },
         { status: 400 }
@@ -26,6 +27,13 @@ export async function POST(request: Request) {
     const mesa = await prisma.mesa.findUnique({ where: { id: mesaNumerica } });
     if (!mesa) {
       return NextResponse.json({ error: 'MESA_NO_ENCONTRADA' }, { status: 404 });
+    }
+
+    if (mesa.estado === 'Mantenimiento') {
+      return NextResponse.json(
+        { error: 'MESA_NO_DISPONIBLE', message: 'La mesa se encuentra en mantenimiento.' },
+        { status: 409 }
+      );
     }
 
     if (mesa.capacidad && personas > mesa.capacidad) {
@@ -72,11 +80,8 @@ export async function POST(request: Request) {
       },
     });
 
-    await prisma.mesa.update({
-      where: { id: mesaNumerica },
-      data: { estado: 'Reservada' },
-    });
-
+    // La mesa NO se marca como "Reservada": la disponibilidad se calcula
+    // dinámicamente según la fecha/hora de la reserva.
     return NextResponse.json(nuevaReserva);
   } catch (error) {
     console.error(error);

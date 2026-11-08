@@ -230,6 +230,12 @@ export default function VentasPage() {
                 {formatDateTime(detalle.fecha_creacion)}
               </span>
             </div>
+            {detalle.metodoPago && (
+              <div className="mb-4 flex justify-between text-sm">
+                <span className="text-slate-600">Método de pago:</span>
+                <span className="font-semibold text-slate-800">{detalle.metodoPago}</span>
+              </div>
+            )}
 
             <div className="space-y-2 border-t border-dashed border-slate-200 pt-3">
               {detalle.detalles.map((item: any) => (

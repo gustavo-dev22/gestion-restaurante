@@ -4,11 +4,12 @@ import { LayoutGrid, Loader2, Users, CalendarCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import NotificacionesMesero from '@/components/mesero/notificacionesMesero';
+import LlamadosMesero from '@/components/mesero/llamadosMesero';
 import { PageHeader } from '@/components/ui/PageHeader';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastInfo, toastWarning, toastError } from '@/components/ui/Toast';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { http } from '@/lib/http';
+import { http, getErrorMessage } from '@/lib/http';
 
 export default function SalonMeseroPage() {
   const [mesas, setMesas] = useState<any[]>([]);
@@ -64,8 +65,8 @@ export default function SalonMeseroPage() {
 
       setOpenTarget(null);
       router.push(`/mesero/pedido/${data.pedido.id}`);
-    } catch {
-      toastError("No se pudo abrir la mesa", "Intenta nuevamente en unos segundos.");
+    } catch (error) {
+      toastError("No se pudo abrir la mesa", getErrorMessage(error, "Intenta nuevamente en unos segundos."));
     } finally {
       setOpening(false);
     }
@@ -119,6 +120,8 @@ export default function SalonMeseroPage() {
         title="Salón Interactivo"
         description="Selecciona una mesa para gestionar el servicio"
       />
+
+      <LlamadosMesero />
 
       {loading ? (
         <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />

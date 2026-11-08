@@ -1,61 +1,132 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-
-// app/api/mesero/pedido/detalle/route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSessionFromRequest } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
-    const { pedidoId, items } = await request.json();
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const pedidoId = Number(body?.pedidoId);
+    const items = Array.isArray(body?.items) ? body.items : [];
+
+    if (!pedidoId || Number.isNaN(pedidoId)) {
+      return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
+    }
+
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: pedidoId },
+      select: { id: true, estado: true, usuarioId: true },
+    });
+
+    if (!pedido) {
+      return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
+    }
+
+    const isAdmin = session.sections.includes("admin");
+    if (!isAdmin && pedido.usuarioId !== session.sub) {
+      return NextResponse.json(
+        { error: "FORBIDDEN", message: "No puedes modificar un pedido de otro mesero." },
+        { status: 403 }
+      );
+    }
+
+    if (pedido.estado !== "Pendiente") {
+      return NextResponse.json(
+        { error: "ESTADO_INVALIDO", message: "Solo se pueden agregar platos a pedidos pendientes." },
+        { status: 400 }
+      );
+    }
+
+    const itemsNormalizados: Array<{ productoId: number; cantidad: number }> = (
+      items as Array<{ id?: unknown; cantidad?: unknown }>
+    )
+      .map((item) => ({
+        productoId: Number(item.id),
+        cantidad: Math.floor(Number(item.cantidad)),
+      }))
+      .filter((item) => item.productoId > 0 && item.cantidad > 0);
+
+    if (itemsNormalizados.length === 0) {
+      return NextResponse.json({ error: "No hay productos válidos" }, { status: 400 });
+    }
 
     await prisma.$transaction(async (tx) => {
-      for (const item of items) {
-        // 1. BUSCAR SI EL PRODUCTO YA ESTÁ EN EL PEDIDO
+      let totalAgregado = 0;
+
+      for (const item of itemsNormalizados) {
+        const producto = await tx.producto.findUnique({
+          where: { id: item.productoId },
+          select: { id: true, precio: true, stock: true, activo: true },
+        });
+
+        if (!producto || !producto.activo) {
+          throw new Error(`PRODUCTO_INVALIDO:${item.productoId}`);
+        }
+
+        if (producto.stock !== null && producto.stock < item.cantidad) {
+          throw new Error(`STOCK_INSUFICIENTE:${producto.id}`);
+        }
+
+        const precio = Number(producto.precio);
+        const subtotal = precio * item.cantidad;
+        totalAgregado += subtotal;
+
         const detalleExistente = await tx.pedidoDetalle.findFirst({
-          where: {
-            pedidoId: Number(pedidoId),
-            productoId: Number(item.id),
-          }
+          where: { pedidoId, productoId: item.productoId },
         });
 
         if (detalleExistente) {
-          // Si existe, actualizamos la cantidad
+          const nuevaCantidad = detalleExistente.cantidad + item.cantidad;
           await tx.pedidoDetalle.update({
             where: { id: detalleExistente.id },
-            data: { cantidad: { increment: Number(item.cantidad) } }
+            data: {
+              cantidad: nuevaCantidad,
+              precio_unitario: precio,
+              subtotal: precio * nuevaCantidad,
+              estado: "Pendiente",
+            },
           });
         } else {
-          // Si no existe, creamos la fila nueva
           await tx.pedidoDetalle.create({
             data: {
-              pedidoId: Number(pedidoId),
-              productoId: Number(item.id),
-              cantidad: Number(item.cantidad),
-              precio_unitario: Number(item.precio),
-              estado: 'Pendiente'
-            }
+              pedidoId,
+              productoId: item.productoId,
+              cantidad: item.cantidad,
+              precio_unitario: precio,
+              subtotal,
+              estado: "Pendiente",
+            },
           });
         }
 
-        // 2. DESCONTAR EL STOCK (Igual que antes)
-        await tx.producto.update({
-          where: { id: Number(item.id) },
-          data: { stock: { decrement: Number(item.cantidad) } }
-        });
+        if (producto.stock !== null) {
+          await tx.producto.update({
+            where: { id: item.productoId },
+            data: { stock: { decrement: item.cantidad } },
+          });
+        }
       }
 
-      // 3. ACTUALIZAR EL TOTAL DEL PEDIDO
-      const totalNuevosItems = items.reduce((acc: number, item: any) => 
-        acc + (Number(item.precio) * Number(item.cantidad)), 0
-      );
-
       await tx.pedido.update({
-        where: { id: Number(pedidoId) },
-        data: { total: { increment: totalNuevosItems } }
+        where: { id: pedidoId },
+        data: { total: { increment: totalAgregado } },
       });
     });
 
-    return NextResponse.json({ message: 'Comanda agrupada y stock actualizado' });
+    return NextResponse.json({ message: "Comanda registrada y stock actualizado" });
   } catch (error) {
-    return NextResponse.json({ error: 'Error al procesar' }, { status: 500 });
+    const message = error instanceof Error ? error.message : "";
+    if (message.startsWith("STOCK_INSUFICIENTE")) {
+      return NextResponse.json({ error: "STOCK_INSUFICIENTE", message: "No hay stock suficiente." }, { status: 409 });
+    }
+    if (message.startsWith("PRODUCTO_INVALIDO")) {
+      return NextResponse.json({ error: "PRODUCTO_INVALIDO", message: "Producto no disponible." }, { status: 400 });
+    }
+    console.error(error);
+    return NextResponse.json({ error: "Error al procesar la comanda" }, { status: 500 });
   }
 }

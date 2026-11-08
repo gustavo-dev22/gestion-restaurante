@@ -9,8 +9,9 @@ export async function GET() {
       _sum: { total: true },
       _count: { id: true },
       // Solo tomamos pedidos finalizados o pagados si tuvieras ese estado
-      where: { 
-        NOT: { usuarioId: null } 
+      where: {
+        estado: 'Pagado',
+        NOT: { usuarioId: null },
       }
     });
 

@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 import { getHomePath, isPathAllowed } from '@/lib/roles';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { token, hasHydrated, user } = useAuthStore();
+  const { isAuthenticated, hasHydrated, user } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [isClient, setIsClient] = useState(false);
@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Solo actuamos si ya se cargaron los datos del localStorage
     if (!hasHydrated || !isClient) return;
 
-    if (!token) {
+    if (!isAuthenticated) {
       router.replace('/login');
       return;
     }
@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === '/dashboard' || !isPathAllowed(user, pathname)) {
       if (pathname !== home) router.replace(home);
     }
-  }, [token, hasHydrated, isClient, user, pathname, router]);
+  }, [isAuthenticated, hasHydrated, isClient, user, pathname, router]);
 
   // Mientras no se hidrate o no estemos en el cliente, mostramos un spinner
   if (!hasHydrated || !isClient) {
@@ -43,8 +43,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // Si después de hidratar no hay token, no renderizamos nada (el useEffect hará el redirect)
-  if (!token) return null;
+  // Si después de hidratar no hay sesión, no renderizamos nada (el useEffect hará el redirect)
+  if (!isAuthenticated) return null;
 
   // Evita mostrar contenido de una ruta no permitida mientras se redirige.
   const home = getHomePath(user);

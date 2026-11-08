@@ -139,3 +139,48 @@ export function peruStartOfDay(daysAgo = 0, base: DateInput = new Date()): Date 
 export function peruEndOfDay(daysAgo = 0, base: DateInput = new Date()): Date {
   return new Date(peruStartOfDay(daysAgo + 1, base).getTime() - 1);
 }
+
+/**
+ * Parsea un valor `datetime-local` (ej. "2026-11-08T15:30") asumiendo que
+ * representa hora de Perú. No depende de la zona horaria del servidor/contenedor.
+ * Si el string ya incluye offset o "Z", se respeta tal cual.
+ */
+export function parseLimaDateTime(value?: string | null): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/[zZ]$/.test(trimmed) || /[+-]\d{2}:?\d{2}$/.test(trimmed)) {
+    const explicit = new Date(trimmed);
+    return Number.isNaN(explicit.getTime()) ? null : explicit;
+  }
+
+  const match = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/
+  );
+
+  if (!match) {
+    const fallback = new Date(trimmed);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  }
+
+  const [, year, month, day, hour, minute, second] = match;
+  const utc = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour) + PERU_UTC_OFFSET_HOURS,
+    Number(minute),
+    Number(second ?? 0)
+  );
+
+  const date = new Date(utc);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Devuelve la fecha/hora actual de Perú en formato `datetime-local`. */
+export function toLimaInputValue(date: DateInput = new Date()): string {
+  const parts = getPeruDateParts(date);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+}

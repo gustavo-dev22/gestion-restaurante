@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 
 const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
 
+class MesaNoDisponibleError extends Error {}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -32,45 +34,87 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { mesaId, items, total } = await request.json();
+    const body = await request.json();
+    const mesaId = Number(body?.mesaId);
+    const items = Array.isArray(body?.items) ? body.items : [];
+
+    if (!mesaId || Number.isNaN(mesaId)) {
+      return NextResponse.json({ error: 'Mesa inválida' }, { status: 400 });
+    }
+
+    const itemsNormalizados: Array<{ productoId: number; cantidad: number }> = (
+      items as Array<{ id?: unknown; cantidad?: unknown }>
+    )
+      .map((item) => ({
+        productoId: Number(item.id),
+        cantidad: Math.floor(Number(item.cantidad)),
+      }))
+      .filter((item) => item.productoId > 0 && item.cantidad > 0);
+
+    if (itemsNormalizados.length === 0) {
+      return NextResponse.json({ error: 'El pedido no tiene productos válidos' }, { status: 400 });
+    }
+
+    // Los precios SIEMPRE se toman de la base de datos, nunca del cliente.
+    const productos = await prisma.producto.findMany({
+      where: {
+        id: { in: itemsNormalizados.map((item) => item.productoId) },
+        activo: true,
+      },
+      select: { id: true, precio: true },
+    });
+
+    const precios = new Map(productos.map((producto) => [producto.id, Number(producto.precio)]));
+
+    if (productos.length !== new Set(itemsNormalizados.map((item) => item.productoId)).size) {
+      return NextResponse.json(
+        { error: 'Uno o más productos no están disponibles' },
+        { status: 400 }
+      );
+    }
+
+    const detalles = itemsNormalizados.map((item) => ({
+      productoId: item.productoId,
+      cantidad: item.cantidad,
+      precio_unitario: precios.get(item.productoId) ?? 0,
+      subtotal: (precios.get(item.productoId) ?? 0) * item.cantidad,
+      estado: 'Pendiente',
+    }));
+
+    const total = detalles.reduce((acc, detalle) => acc + Number(detalle.subtotal), 0);
 
     const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Crear el pedido (Estado inicial: 'Por Confirmar')
-      const nuevoPedido = await tx.pedido.create({
-        data: {
-          mesaId: Number(mesaId),
-          total: total,
-          estado: 'Por Confirmar', // Estado especial para que el mesero lo acepte
-          nombreMesero: 'Cliente (Digital)',
-          fecha_creacion: new Date(),
-          detalles: {
-            create: items.map((item: any) => ({
-              productoId: item.id,
-              cantidad: item.cantidad,
-              precio_unitario: item.precio
-            }))
-          }
-        }
-      });
-
-      const mesaActual = await tx.mesa.findUnique({ where: { id: Number(mesaId) } });
-      if (mesaActual?.estado !== 'Libre') {
-        throw new Error("La mesa ya no está disponible");
+      const mesaActual = await tx.mesa.findUnique({ where: { id: mesaId } });
+      if (!mesaActual || mesaActual.estado !== 'Libre') {
+        throw new MesaNoDisponibleError('La mesa ya no está disponible');
       }
 
-      // 2. Marcar mesa como Ocupada
+      const nuevoPedido = await tx.pedido.create({
+        data: {
+          mesaId,
+          total,
+          estado: 'Por Confirmar',
+          nombreMesero: 'Cliente (Digital)',
+          fecha_creacion: new Date(),
+          detalles: { create: detalles },
+        },
+        include: { detalles: true },
+      });
+
       await tx.mesa.update({
-        where: { id: Number(mesaId) },
-        data: { estado: 'Ocupada' }
+        where: { id: mesaId },
+        data: { estado: 'Ocupada' },
       });
 
       return nuevoPedido;
     });
 
     return NextResponse.json(resultado);
-  } catch (error: any) {
-    // Esto imprimirá el error real en tu terminal de VS Code
-    console.error("ERROR PRISMA:", error.message);
-    return NextResponse.json({ error: 'Error al procesar pedido', details: error.message }, { status: 500 });
+  } catch (error) {
+    if (error instanceof MesaNoDisponibleError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    console.error('ERROR PEDIDO PUBLICO:', error);
+    return NextResponse.json({ error: 'Error al procesar pedido' }, { status: 500 });
   }
 }

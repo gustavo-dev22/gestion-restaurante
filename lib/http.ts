@@ -34,6 +34,11 @@ function handleUnauthorized() {
     // Si el store no está disponible, continuamos con la redirección.
   }
 
+  // Limpia también la cookie de sesión en el servidor.
+  fetch("/api/auth/logout", { method: "POST" }).catch(() => {
+    // Fire-and-forget: la redirección continúa aunque falle.
+  });
+
   const current = `${window.location.pathname}${window.location.search}`;
   if (!window.location.pathname.startsWith("/login")) {
     window.location.assign(`/login?redirect=${encodeURIComponent(current)}`);

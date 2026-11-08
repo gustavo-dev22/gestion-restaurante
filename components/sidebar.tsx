@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { SasiMenuObject, SasiSistema } from "@/lib/types";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { resolveIcon } from "@/lib/icons";
+import { http } from "@/lib/http";
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
@@ -40,8 +41,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     setLogoutOpen(true);
   };
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
     setLogoutOpen(false);
+    try {
+      await http.post("/api/auth/logout", undefined, { skipAuthRedirect: true });
+    } catch {
+      // Aunque falle el cierre de sesión del servidor, limpiamos el estado local.
+    }
     logout();
     onClose();
     router.replace("/login");

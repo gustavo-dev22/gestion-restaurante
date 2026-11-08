@@ -15,28 +15,20 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const { id, nuevoEstado, mesaId } = await request.json();
+    const { id, nuevoEstado } = await request.json();
 
-    const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Actualizar el estado de la reserva
-      const reservaAct = await tx.reserva.update({
-        where: { id: Number(id) },
-        data: { estado: nuevoEstado }
-      });
+    if (!id || !['Confirmada', 'Finalizada', 'Cancelada'].includes(nuevoEstado)) {
+      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
+    }
 
-      // 2. Si el cliente llegó o canceló, liberamos o preparamos la mesa
-      // Si el estado es 'Finalizada' o 'Cancelada', la mesa vuelve a 'Libre'
-      if (nuevoEstado === 'Finalizada' || nuevoEstado === 'Cancelada') {
-        await tx.mesa.update({
-          where: { id: mesaId },
-          data: { estado: 'Libre' }
-        });
-      }
-
-      return reservaAct;
+    // La mesa ya no se marca/desmarca manualmente: la disponibilidad se
+    // calcula dinámicamente según la fecha/hora de la reserva.
+    const reserva = await prisma.reserva.update({
+      where: { id: Number(id) },
+      data: { estado: nuevoEstado },
     });
 
-    return NextResponse.json(resultado);
+    return NextResponse.json(reserva);
   } catch (error) {
     return NextResponse.json({ error: 'Error al actualizar reserva' }, { status: 500 });
   }

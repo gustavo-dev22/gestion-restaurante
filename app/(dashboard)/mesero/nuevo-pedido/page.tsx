@@ -5,7 +5,7 @@ import { Utensils, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { toastError } from '@/components/ui/Toast';
-import { http } from '@/lib/http';
+import { http, getErrorMessage } from '@/lib/http';
 
 export default function NuevoPedidoQuickPage() {
   const [mesasLibres, setMesasLibres] = useState<any[]>([]);
@@ -44,8 +44,8 @@ export default function NuevoPedidoQuickPage() {
       });
 
       router.push(`/mesero/pedido/${data.pedido.id}`);
-    } catch {
-      toastError("No se pudo abrir la mesa", "Intenta nuevamente en unos segundos.");
+    } catch (error) {
+      toastError("No se pudo abrir la mesa", getErrorMessage(error, "Intenta nuevamente en unos segundos."));
       setOpeningId(null);
     }
   };

@@ -8,7 +8,8 @@ export async function GET(request: Request) {
   try {
     const comandas = await prisma.pedidoDetalle.findMany({
       where: {
-        estado: { not: 'Listo' },
+        // Incluye explícitamente estado NULL (pedidos antiguos o creados por QR)
+        OR: [{ estado: null }, { estado: { not: 'Listo' } }],
         pedido: { estado: 'Pendiente' },
         producto: {
           categoria: {
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
       orderBy: { id: 'asc' }
     });
     return NextResponse.json(comandas);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error' }, { status: 500 });
   }
 }
@@ -32,12 +33,17 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const { detalleId, nuevoEstado } = await request.json();
+
+    if (!detalleId || nuevoEstado !== 'Listo') {
+      return NextResponse.json({ error: 'Estado o detalle inválido' }, { status: 400 });
+    }
+
     const actualizado = await prisma.pedidoDetalle.update({
       where: { id: Number(detalleId) },
       data: { estado: nuevoEstado }
     });
     return NextResponse.json(actualizado);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 });
   }
 }

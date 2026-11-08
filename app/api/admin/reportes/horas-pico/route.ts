@@ -6,6 +6,7 @@ export async function GET() {
   try {
     // 1. Obtenemos todos los pedidos con su fecha y total
     const pedidos = await prisma.pedido.findMany({
+      where: { estado: { notIn: ['Llamado', 'Atendido'] } },
       select: {
         fecha_creacion: true,
         total: true

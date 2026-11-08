@@ -58,6 +58,7 @@ model Pedido {
   estado         String?         @default("Pendiente", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(20)
   fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
   nombreMesero   String?         @db.NVarChar(100)
+  metodoPago     String?         @db.NVarChar(30)
   detalles       PedidoDetalle[]
   mesa           Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
 

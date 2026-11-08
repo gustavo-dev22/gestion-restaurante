@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastError } from "@/components/ui/Toast";
 import { http } from "@/lib/http";
+import { formatDateTime, parseLimaDateTime, toLimaInputValue } from "@/lib/utils";
 
 interface ReservaForm {
   clienteNombre: string;
@@ -47,9 +48,9 @@ export default function FormularioReservaPage() {
 
   useEffect(() => {
     http
-      .get<MesaOption[]>("/api/mesas", { skipAuthRedirect: true })
+      .get<MesaOption[]>("/api/public/mesas", { skipAuthRedirect: true })
       .then((data) =>
-        setMesas(Array.isArray(data) ? data.filter((mesa) => mesa.estado === "Libre") : [])
+        setMesas(Array.isArray(data) ? data.filter((mesa) => mesa.estado !== "Mantenimiento") : [])
       )
       .catch(() => setMesas([]))
       .finally(() => setLoadingMesas(false));
@@ -70,7 +71,7 @@ export default function FormularioReservaPage() {
     }
     if (!formData.fechaReserva) {
       next.fechaReserva = "Selecciona la fecha y hora de tu reserva.";
-    } else if (new Date(formData.fechaReserva).getTime() < Date.now()) {
+    } else if ((parseLimaDateTime(formData.fechaReserva)?.getTime() ?? 0) < Date.now()) {
       next.fechaReserva = "La fecha y hora deben ser futuras.";
     }
     if (!formData.mesaId) {
@@ -124,9 +125,7 @@ export default function FormularioReservaPage() {
     }
   };
 
-  const minDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
+  const minDateTime = toLimaInputValue();
 
   if (enviado) {
     return (
@@ -293,7 +292,7 @@ export default function FormularioReservaPage() {
             </p>
             <p>
               <span className="font-semibold">Fecha:</span>{" "}
-              {formData.fechaReserva ? new Date(formData.fechaReserva).toLocaleString("es-PE") : "—"}
+              {formData.fechaReserva ? formatDateTime(parseLimaDateTime(formData.fechaReserva)) : "—"}
             </p>
             <p>
               <span className="font-semibold">Personas:</span> {formData.numPersonas}

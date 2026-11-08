@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
@@ -18,7 +18,28 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ username?: string; password?: string; form?: string }>({});
 
   const setAuth = useAuthStore((state) => state.setAuth);
+  const logout = useAuthStore((state) => state.logout);
+  const { isAuthenticated, hasHydrated, user } = useAuthStore();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!hasHydrated || !isAuthenticated) return;
+
+    let active = true;
+    // Valida que la cookie de sesión siga vigente antes de redirigir.
+    http
+      .get("/api/auth/session", { skipAuthRedirect: true })
+      .then(() => {
+        if (active) router.replace(getHomePath(user));
+      })
+      .catch(() => {
+        if (active) logout();
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasHydrated, isAuthenticated, user, router, logout]);
 
   const validate = () => {
     const next: typeof errors = {};
@@ -40,11 +61,10 @@ export default function LoginPage() {
         success: boolean;
         message?: string;
         usuario?: AuthUserLike;
-        token?: string;
       }>("/api/auth/login", { username: username.trim(), password }, { skipAuthRedirect: true });
 
       if (data.success) {
-        setAuth(data.usuario, data.token ?? "");
+        setAuth(data.usuario);
         router.replace(getHomePath(data.usuario));
       } else {
         setErrors({ form: data.message || "Usuario o contraseña incorrectos." });
