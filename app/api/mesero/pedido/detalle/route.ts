@@ -60,15 +60,23 @@ export async function POST(request: Request) {
       for (const item of itemsNormalizados) {
         const producto = await tx.producto.findUnique({
           where: { id: item.productoId },
-          select: { id: true, precio: true, stock: true, activo: true },
+          select: { id: true, nombre: true, precio: true, stock: true, activo: true },
         });
 
         if (!producto || !producto.activo) {
           throw new Error(`PRODUCTO_INVALIDO:${item.productoId}`);
         }
 
-        if (producto.stock !== null && producto.stock < item.cantidad) {
-          throw new Error(`STOCK_INSUFICIENTE:${producto.id}`);
+        // Descuento atómico: evita stock negativo bajo concurrencia.
+        if (producto.stock !== null) {
+          const descontado = await tx.producto.updateMany({
+            where: { id: item.productoId, stock: { gte: item.cantidad } },
+            data: { stock: { decrement: item.cantidad } },
+          });
+
+          if (descontado.count === 0) {
+            throw new Error(`STOCK_INSUFICIENTE:${producto.nombre}`);
+          }
         }
 
         const precio = Number(producto.precio);
@@ -102,12 +110,6 @@ export async function POST(request: Request) {
           });
         }
 
-        if (producto.stock !== null) {
-          await tx.producto.update({
-            where: { id: item.productoId },
-            data: { stock: { decrement: item.cantidad } },
-          });
-        }
       }
 
       await tx.pedido.update({
@@ -120,7 +122,14 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message.startsWith("STOCK_INSUFICIENTE")) {
-      return NextResponse.json({ error: "STOCK_INSUFICIENTE", message: "No hay stock suficiente." }, { status: 409 });
+      const producto = message.split(":")[1];
+      return NextResponse.json(
+        {
+          error: "STOCK_INSUFICIENTE",
+          message: producto ? `Stock insuficiente para "${producto}".` : "No hay stock suficiente.",
+        },
+        { status: 409 }
+      );
     }
     if (message.startsWith("PRODUCTO_INVALIDO")) {
       return NextResponse.json({ error: "PRODUCTO_INVALIDO", message: "Producto no disponible." }, { status: 400 });

@@ -5,6 +5,7 @@ import {
   createSessionToken,
 } from "@/lib/auth/session";
 import { getHomePath, getRoleName, getSections, type AuthUserLike } from "@/lib/roles";
+import { sasiLoginRequest } from "@/lib/sasi";
 
 const SYSTEM_ID = 13;
 
@@ -12,13 +13,7 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SASI_API}/Auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
+    const { data } = await sasiLoginRequest(body);
 
     if (!data.success) {
       return NextResponse.json(

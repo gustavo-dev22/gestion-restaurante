@@ -11,16 +11,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isAuthenticated, hasHydrated, user } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-  const [isClient, setIsClient] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
     // Solo actuamos si ya se cargaron los datos del localStorage
-    if (!hasHydrated || !isClient) return;
+    if (!hasHydrated) return;
 
     if (!isAuthenticated) {
       router.replace('/login');
@@ -32,10 +27,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === '/dashboard' || !isPathAllowed(user, pathname)) {
       if (pathname !== home) router.replace(home);
     }
-  }, [isAuthenticated, hasHydrated, isClient, user, pathname, router]);
+  }, [isAuthenticated, hasHydrated, user, pathname, router]);
 
   // Mientras no se hidrate o no estemos en el cliente, mostramos un spinner
-  if (!hasHydrated || !isClient) {
+  if (!hasHydrated) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin text-blue-600" size={40} />

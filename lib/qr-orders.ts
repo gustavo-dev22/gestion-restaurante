@@ -31,6 +31,19 @@ export async function expireStaleQrOrders(): Promise<number> {
       if (actualizado.count === 0) return;
       expirados += 1;
 
+      // Devuelve al stock los productos de un pedido que nunca llegó a cocina.
+      const detalles = await tx.pedidoDetalle.findMany({
+        where: { pedidoId: pedido.id },
+        select: { productoId: true, cantidad: true },
+      });
+
+      for (const detalle of detalles) {
+        await tx.producto.updateMany({
+          where: { id: detalle.productoId },
+          data: { stock: { increment: detalle.cantidad } },
+        });
+      }
+
       const otroActivo = await tx.pedido.findFirst({
         where: {
           mesaId: pedido.mesaId,

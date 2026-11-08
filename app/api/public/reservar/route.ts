@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseLimaDateTime } from '@/lib/utils';
+import { getClientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 
 const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
 
 export async function POST(request: Request) {
   try {
+    const limit = rateLimit(`public:reservar:${getClientIp(request)}`, 5, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'RATE_LIMIT', message: 'Demasiadas solicitudes de reserva. Espera un momento.' },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
+
     const body = await request.json();
     const { clienteNombre, clienteTelefono, fechaReserva, numPersonas, mesaId } = body;
 

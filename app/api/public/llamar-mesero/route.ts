@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getClientIp, rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 const DOS_MINUTOS_MS = 2 * 60 * 1000;
 const VENTANA_CONSULTA_MS = 30 * 60 * 1000;
@@ -37,6 +38,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const limit = rateLimit(`public:llamar:${getClientIp(request)}`, 5, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { success: false, message: "Demasiadas solicitudes. Espera un momento." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
+
     const body = await request.json();
     const mesaId = Number(body?.mesaId);
 

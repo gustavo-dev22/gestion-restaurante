@@ -71,7 +71,7 @@ model PedidoDetalle {
   productoId      Int
   cantidad        Int
   precio_unitario Decimal  @db.Decimal(10, 2)
-  subtotal        Decimal? @db.Decimal(21, 2)
+  // subtotal es una columna calculada en SQL Server; no se gestiona desde Prisma.
   estado          String?  @db.VarChar(20)
   pedido          Pedido   @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
   producto        Producto @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")

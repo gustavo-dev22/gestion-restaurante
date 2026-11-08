@@ -39,19 +39,16 @@ export async function PATCH(request: Request) {
     }
 
     const resultado = await prisma.$transaction(async (tx) => {
-      const mesa = await tx.mesa.findUnique({ where: { id: mesaId } });
-
-      if (!mesa) {
-        throw new Error('MESA_NO_ENCONTRADA');
-      }
-      if (mesa.estado !== 'Libre') {
-        throw new Error('MESA_NO_DISPONIBLE');
-      }
-
-      const mesaActualizada = await tx.mesa.update({
-        where: { id: mesaId },
+      // Bloqueo lógico atómico: evita que dos meseros abran la misma mesa.
+      const mesaTomada = await tx.mesa.updateMany({
+        where: { id: mesaId, estado: 'Libre' },
         data: { estado: 'Ocupada' },
       });
+
+      if (mesaTomada.count === 0) {
+        const existe = await tx.mesa.findUnique({ where: { id: mesaId }, select: { id: true } });
+        throw new Error(existe ? 'MESA_NO_DISPONIBLE' : 'MESA_NO_ENCONTRADA');
+      }
 
       const nuevoPedido = await tx.pedido.create({
         data: {
@@ -64,7 +61,7 @@ export async function PATCH(request: Request) {
         },
       });
 
-      return { mesa: mesaActualizada, pedido: nuevoPedido };
+      return { pedido: nuevoPedido };
     });
 
     return NextResponse.json(resultado);

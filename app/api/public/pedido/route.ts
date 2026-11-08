@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { expireStaleQrOrders } from '@/lib/qr-orders';
+import { getClientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 
 const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
 
 class MesaNoDisponibleError extends Error {}
+class ProductoInvalidoError extends Error {}
+class StockInsuficienteError extends Error {
+  productoId: number;
+  constructor(productoId: number, message: string) {
+    super(message);
+    this.productoId = productoId;
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -37,6 +46,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const limit = rateLimit(`public:pedido:${getClientIp(request)}`, 10, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'RATE_LIMIT', message: 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.' },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
+
     await expireStaleQrOrders();
 
     const body = await request.json();
@@ -60,44 +77,62 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El pedido no tiene productos válidos' }, { status: 400 });
     }
 
-    // Los precios SIEMPRE se toman de la base de datos, nunca del cliente.
-    const productos = await prisma.producto.findMany({
-      where: {
-        id: { in: itemsNormalizados.map((item) => item.productoId) },
-        activo: true,
-      },
-      select: { id: true, precio: true },
-    });
-
-    const precios = new Map(productos.map((producto) => [producto.id, Number(producto.precio)]));
-
-    if (productos.length !== new Set(itemsNormalizados.map((item) => item.productoId)).size) {
-      return NextResponse.json(
-        { error: 'Uno o más productos no están disponibles' },
-        { status: 400 }
-      );
-    }
-
-    // 'subtotal' es una columna calculada en SQL Server: nunca se escribe.
-    const detalles = itemsNormalizados.map((item) => ({
-      productoId: item.productoId,
-      cantidad: item.cantidad,
-      precio_unitario: precios.get(item.productoId) ?? 0,
-      estado: 'Pendiente',
-    }));
-
-    const total = itemsNormalizados.reduce(
-      (acc, item) => acc + (precios.get(item.productoId) ?? 0) * item.cantidad,
-      0
-    );
-
     const resultado = await prisma.$transaction(async (tx) => {
-      const mesaActual = await tx.mesa.findUnique({ where: { id: mesaId } });
-      if (!mesaActual || mesaActual.estado !== 'Libre') {
+      // Bloqueo lógico atómico: solo una transacción puede pasar la mesa de
+      // "Libre" a "Ocupada". Las demás reciben count = 0.
+      const mesaTomada = await tx.mesa.updateMany({
+        where: { id: mesaId, estado: 'Libre' },
+        data: { estado: 'Ocupada' },
+      });
+
+      if (mesaTomada.count === 0) {
         throw new MesaNoDisponibleError('La mesa ya no está disponible');
       }
 
-      const nuevoPedido = await tx.pedido.create({
+      const detalles: Array<{
+        productoId: number;
+        cantidad: number;
+        precio_unitario: number;
+        estado: string;
+      }> = [];
+      let total = 0;
+
+      for (const item of itemsNormalizados) {
+        const producto = await tx.producto.findUnique({
+          where: { id: item.productoId },
+          select: { id: true, nombre: true, precio: true, stock: true, activo: true },
+        });
+
+        if (!producto || !producto.activo) {
+          throw new ProductoInvalidoError(`El producto ${item.productoId} no está disponible.`);
+        }
+
+        // Descuento atómico de stock: la condición evita negativos por concurrencia.
+        if (producto.stock !== null) {
+          const descontado = await tx.producto.updateMany({
+            where: { id: item.productoId, stock: { gte: item.cantidad } },
+            data: { stock: { decrement: item.cantidad } },
+          });
+
+          if (descontado.count === 0) {
+            throw new StockInsuficienteError(
+              producto.id,
+              `Stock insuficiente para "${producto.nombre}".`
+            );
+          }
+        }
+
+        const precio = Number(producto.precio);
+        total += precio * item.cantidad;
+        detalles.push({
+          productoId: item.productoId,
+          cantidad: item.cantidad,
+          precio_unitario: precio,
+          estado: 'Pendiente',
+        });
+      }
+
+      return tx.pedido.create({
         data: {
           mesaId,
           total,
@@ -108,19 +143,21 @@ export async function POST(request: Request) {
         },
         include: { detalles: true },
       });
-
-      await tx.mesa.update({
-        where: { id: mesaId },
-        data: { estado: 'Ocupada' },
-      });
-
-      return nuevoPedido;
     });
 
     return NextResponse.json(resultado);
   } catch (error) {
     if (error instanceof MesaNoDisponibleError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    if (error instanceof StockInsuficienteError) {
+      return NextResponse.json(
+        { error: 'STOCK_INSUFICIENTE', message: error.message, productoId: error.productoId },
+        { status: 409 }
+      );
+    }
+    if (error instanceof ProductoInvalidoError) {
+      return NextResponse.json({ error: 'PRODUCTO_INVALIDO', message: error.message }, { status: 400 });
     }
     console.error('ERROR PEDIDO PUBLICO:', error);
     return NextResponse.json({ error: 'Error al procesar pedido' }, { status: 500 });

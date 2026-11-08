@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  quality:
+    name: Typecheck, lint y build
+    runs-on: ubuntu-latest
+
+    env:
+      # Valores dummy: el build no se conecta a una base real.
+      DATABASE_URL: "sqlserver://localhost:1433;database=ci;user=sa;password=YourStrong!Passw0rd;trustServerCertificate=true"
+      NEXT_PUBLIC_SASI_API: "https://localhost:44337/SASI/api"
+      AUTH_SECRET: "ci-secret-0123456789abcdef0123456789abcdef"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar Prisma Client
+        run: npx prisma generate
+
+      - name: Verificar tipos
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build de producción
+        run: npm run build

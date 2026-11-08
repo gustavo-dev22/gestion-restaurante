@@ -20,7 +20,12 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 function getSecret() {
-  return process.env.AUTH_SECRET || "dev-only-insecure-secret-change-me";
+  const secret = process.env.AUTH_SECRET?.trim();
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("[auth] AUTH_SECRET no está configurado.");
+  }
+  return "dev-only-insecure-secret-change-me";
 }
 
 function toBase64Url(bytes: Uint8Array) {
