@@ -49,10 +49,13 @@ export default function LlamadosMesero() {
   if (llamados.length === 0) return null;
 
   return (
-    <section className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+    <section aria-labelledby="llamados-title" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {llamados.length} llamados de mesero pendientes: {llamados.map((llamado) => `Mesa ${llamado.mesa.numero}`).join(", ")}.
+      </p>
       <div className="mb-3 flex items-center gap-2 text-amber-800">
         <BellRing size={18} aria-hidden="true" />
-        <h2 className="font-bold">Llamados de mesero</h2>
+        <h2 id="llamados-title" className="font-bold">Llamados de mesero</h2>
         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-xs font-black text-white">
           {llamados.length}
         </span>
@@ -77,7 +80,7 @@ export default function LlamadosMesero() {
               type="button"
               onClick={() => atender(llamado.id)}
               disabled={atendiendo === llamado.id}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60"
+              className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60"
             >
               {atendiendo === llamado.id ? (
                 <Loader2 size={14} className="animate-spin" />

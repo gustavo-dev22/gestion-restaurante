@@ -120,6 +120,10 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
 
   return (
     <>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {visibles.length} pedidos QR pendientes: {visibles.map((pedido) => `Mesa ${pedido.mesa.numero}`).join(", ")}.
+      </p>
+
       <div className="fixed right-4 top-20 z-40 w-[min(92vw,340px)]">
         <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-white p-4 shadow-xl">
           <div className="relative rounded-full bg-rose-50 p-2 text-rose-600">

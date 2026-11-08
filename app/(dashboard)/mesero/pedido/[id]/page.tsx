@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { 
@@ -10,6 +10,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError, toastWarning } from '@/components/ui/Toast';
 import { http, getErrorMessage } from '@/lib/http';
 import { formatCurrency } from '@/lib/utils';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
@@ -61,6 +62,9 @@ export default function TomaPedidoPage() {
   const [loading, setLoading] = useState(true);
   const [yaTeniaItems, setYaTeniaItems] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const cartPanelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(cartOpen, cartPanelRef, () => setCartOpen(false));
   const [discardOpen, setDiscardOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -286,7 +290,7 @@ export default function TomaPedidoPage() {
                     type="button"
                     aria-label={`Quitar uno de ${item.nombre}`}
                     onClick={(e) => { e.stopPropagation(); quitarDelCarrito(item.id); }} 
-                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-red-200 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border bg-white text-slate-600 shadow-sm transition-all hover:border-red-200 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                   >
                     <Minus size={14}/>
                   </button>
@@ -295,7 +299,7 @@ export default function TomaPedidoPage() {
                     type="button"
                     aria-label={`Agregar uno de ${item.nombre}`}
                     onClick={(e) => { e.stopPropagation(); agregarAlCarrito(item); }} 
-                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border bg-white text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   >
                     <Plus size={14}/>
                   </button>
@@ -330,7 +334,9 @@ export default function TomaPedidoPage() {
         <button
           type="button"
           onClick={() => setCartOpen(true)}
-          className="flex w-full items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white transition-colors hover:bg-slate-800"
+          aria-expanded={cartOpen}
+          aria-controls="cart-drawer"
+          className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white transition-colors hover:bg-slate-800"
         >
           <span className="flex items-center gap-2 font-bold">
             <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs">
@@ -351,9 +357,13 @@ export default function TomaPedidoPage() {
         }`}
       />
       <div
+        ref={cartPanelRef}
+        id="cart-drawer"
         role="dialog"
         aria-modal="true"
         aria-label="Comanda actual"
+        aria-hidden={!cartOpen}
+        inert={!cartOpen}
         className={`fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-3xl bg-white p-5 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
           cartOpen ? "translate-y-0" : "translate-y-full"
         }`}
@@ -367,7 +377,7 @@ export default function TomaPedidoPage() {
             type="button"
             onClick={() => setCartOpen(false)}
             aria-label="Cerrar comanda"
-            className="rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-slate-100"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100"
           >
             <X size={20} />
           </button>
@@ -391,7 +401,7 @@ export default function TomaPedidoPage() {
                     type="button"
                     aria-label={`Quitar uno de ${item.nombre}`}
                     onClick={() => quitarDelCarrito(item.id)}
-                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-red-200 hover:text-red-500"
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border bg-white text-slate-600 shadow-sm transition-all hover:border-red-200 hover:text-red-500"
                   >
                     <Minus size={14} />
                   </button>
@@ -400,7 +410,7 @@ export default function TomaPedidoPage() {
                     type="button"
                     aria-label={`Agregar uno de ${item.nombre}`}
                     onClick={() => agregarAlCarrito(item)}
-                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border bg-white text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
                   >
                     <Plus size={14} />
                   </button>

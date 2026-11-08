@@ -3,6 +3,12 @@ import { cn } from "@/lib/utils";
 
 type Variant = "ghost" | "danger" | "primary" | "outline";
 
+const sizes: Record<"sm" | "md", string> = {
+  // Area tactil minima para tablets (>= 44px).
+  sm: "h-11 w-11 min-h-[44px] min-w-[44px]",
+  md: "h-11 w-11 min-h-[44px] min-w-[44px]",
+};
+
 const variants: Record<Variant, string> = {
   ghost: "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
   danger: "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
@@ -29,7 +35,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
           "inline-flex items-center justify-center rounded-lg transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
           "disabled:pointer-events-none disabled:opacity-40",
-          size === "sm" ? "h-8 w-8" : "h-9 w-9",
+          sizes[size],
           variants[variant],
           className
         )}

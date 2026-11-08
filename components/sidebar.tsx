@@ -1,30 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogOut, X } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { SasiMenuObject, SasiSistema } from "@/lib/types";
+import type { SessionPayload } from "@/lib/auth/session";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { resolveIcon } from "@/lib/icons";
 import { http } from "@/lib/http";
+import { useFocusTrap } from "@/lib/useFocusTrap";
+
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  session?: SessionPayload | null;
 }
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
+export default function Sidebar({ open, onClose, session }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  useFocusTrap(open, sidebarRef, onClose);
 
   const sistemas = (user?.sistemas as SasiSistema[] | undefined) ?? [];
   const sistemaRestaurante = sistemas.find((s) => s.id === 13);
   const rolActivo =
     sistemaRestaurante?.roles?.find((r) => r.esPrincipal) || sistemaRestaurante?.roles?.[0];
+
+  const nombre = user?.nombreCompleto || session?.nombre || "Usuario";
+  const nombreRol = rolActivo?.nombreRol || session?.rol || "Usuario";
 
   const objetos: SasiMenuObject[] = rolActivo?.objetos || [];
   const menusPadre = objetos
@@ -66,10 +76,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       />
 
       <aside
+        ref={sidebarRef}
+        id="app-sidebar"
+        aria-label="Menú principal"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col bg-slate-900 p-4 text-white shadow-xl transition-transform duration-300 ease-in-out",
           "lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full"
+          open ? "visible translate-x-0" : "invisible -translate-x-full lg:visible"
         )}
       >
         <div className="mb-6 flex items-start justify-between gap-2 border-b border-slate-800 px-2 pb-4">
@@ -77,10 +90,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <h2 className="text-xl font-bold text-blue-400">Gestión Restaurante</h2>
             <div className="mt-2">
               <p className="break-words text-sm font-medium leading-tight text-slate-200">
-                {user?.nombreCompleto}
+                {nombre}
               </p>
               <p className="mt-1 text-xs font-bold uppercase tracking-wider text-blue-500">
-                {rolActivo?.nombreRol || "Usuario"}
+                {nombreRol}
               </p>
             </div>
           </div>

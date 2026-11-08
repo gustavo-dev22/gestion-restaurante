@@ -78,7 +78,7 @@ function LlamadoStatus({ llamado }: { llamado: Llamado | null }) {
   );
 }
 
-function ProductImage({ src, alt }: { src?: string | null; alt: string }) {
+function ProductImage({ src, alt, priority = false }: { src?: string | null; alt: string; priority?: boolean }) {
   const [failed, setFailed] = useState(false);
 
   if (!src || failed) {
@@ -95,6 +95,7 @@ function ProductImage({ src, alt }: { src?: string | null; alt: string }) {
       alt={alt}
       fill
       sizes="96px"
+      priority={priority}
       className="object-cover"
       onError={() => setFailed(true)}
     />
@@ -270,6 +271,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
     return Array.from(mapa.values());
   }, [productos]);
 
+  const primerProductoId = productos[0]?.id;
   const total = carrito.reduce((acc, item) => acc + Number(item.precio) * item.cantidad, 0);
   const totalItems = carrito.reduce((acc, item) => acc + item.cantidad, 0);
 
@@ -505,7 +507,11 @@ export default function MenuDigitalPage({ params }: PageProps) {
                       className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                     >
                       <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
-                        <ProductImage src={producto.imagen_url} alt={producto.nombre} />
+                        <ProductImage
+                          src={producto.imagen_url}
+                          alt={producto.nombre}
+                          priority={producto.id === primerProductoId}
+                        />
                       </div>
                       <div className="flex flex-1 flex-col justify-between">
                         <div>
@@ -525,7 +531,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                             type="button"
                             onClick={() => agregarAlCarrito(producto)}
                             aria-label={`Agregar ${producto.nombre} al pedido`}
-                            className="rounded-xl bg-blue-600 p-2 text-white shadow-lg shadow-blue-100 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-100 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                           >
                             <Plus size={18} />
                           </button>
@@ -568,7 +574,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                       type="button"
                       aria-label={`Quitar uno de ${item.nombre}`}
                       onClick={() => reducirDelCarrito(item.id)}
-                      className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                     >
                       <Minus size={14} />
                     </button>
@@ -577,7 +583,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                       type="button"
                       aria-label={`Agregar uno de ${item.nombre}`}
                       onClick={() => agregarAlCarrito(item)}
-                      className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                       <Plus size={14} />
                     </button>
@@ -585,7 +591,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
                       type="button"
                       aria-label={`Eliminar ${item.nombre} del pedido`}
                       onClick={() => quitarDelCarrito(item.id)}
-                      className="rounded-lg border border-transparent p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-transparent p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                     >
                       <Trash2 size={14} />
                     </button>

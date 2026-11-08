@@ -52,6 +52,29 @@ const emptyForm: ProductoForm = {
   stock: "0",
 };
 
+function ProductImageCell({ src, alt }: { src: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
+        <Package size={18} aria-hidden="true" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      width={40}
+      height={40}
+      sizes="40px"
+      className="h-10 w-10 rounded-lg border object-cover"
+      alt={alt}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 const DynamicIcon = ({ name }: { name: string | null }) =>
   createElement(resolveIcon(name), { size: 16 });
 
@@ -257,20 +280,7 @@ export default function ProductosPage() {
                 <tr key={prod.id} className="transition-colors hover:bg-slate-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      {prod.imagen_url ? (
-                        <Image
-                          src={prod.imagen_url}
-                          width={40}
-                          height={40}
-                          sizes="40px"
-                          className="h-10 w-10 rounded-lg border object-cover"
-                          alt={`Imagen de ${prod.nombre}`}
-                        />
-                      ) : (
-                        <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
-                          <Package size={18} />
-                        </div>
-                      )}
+                      <ProductImageCell src={prod.imagen_url} alt={`Imagen de ${prod.nombre}`} />
                       <div>
                         <p className="font-semibold text-slate-700">{prod.nombre}</p>
                         <p className="max-w-[150px] truncate text-xs text-slate-500">{prod.descripcion}</p>
