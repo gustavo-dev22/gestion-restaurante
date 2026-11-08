@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/sidebar";
 import Topbar from "@/components/topbar";
+import SessionWatcher from "@/components/session-watcher";
 import type { SessionPayload } from "@/lib/auth/session";
 
 interface DashboardShellProps {
@@ -15,6 +16,7 @@ export default function DashboardShell({ session, children }: DashboardShellProp
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <SessionWatcher />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"

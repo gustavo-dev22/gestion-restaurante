@@ -1,7 +1,11 @@
-import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
 import { generateIdempotencyKey } from "@/lib/idempotency-key";
-import { toastWarning } from "@/components/ui/Toast";
+import {
+  hasStoredSession,
+  isSessionExpiryInProgress,
+  notifySessionExpired,
+} from "@/lib/session-expiry";
+import { useAuthStore } from "@/lib/store";
 
 export class HttpError extends Error {
   status: number;
@@ -27,35 +31,9 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 const NETWORK_MESSAGE = "No se pudo conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.";
 const TIMEOUT_MESSAGE = "La solicitud tardó demasiado. Verifica tu conexión e inténtalo de nuevo.";
 
-let redirectingToLogin = false;
-
 function handleUnauthorized() {
-  if (typeof window === "undefined" || redirectingToLogin) return;
-  redirectingToLogin = true;
-
-  try {
-    useAuthStore.getState().logout();
-  } catch {
-    // Si el store no está disponible, continuamos con la redirección.
-  }
-
-  // Limpia también la cookie de sesión en el servidor.
-  fetch("/api/auth/logout", { method: "POST" }).catch(() => {
-    // Fire-and-forget: la redirección continúa aunque falle.
-  });
-
-  const current = `${window.location.pathname}${window.location.search}`;
-  if (!window.location.pathname.startsWith("/login")) {
-    toastWarning(
-      "Tu sesión ha expirado",
-      "Redirigiendo al inicio de sesión en unos segundos..."
-    );
-    window.setTimeout(() => {
-      window.location.assign(
-        `/login?redirect=${encodeURIComponent(current)}&expired=1`
-      );
-    }, 2000);
-  }
+  if (typeof window === "undefined" || isSessionExpiryInProgress()) return;
+  notifySessionExpired();
 }
 
 function extractMessage(data: unknown, status: number) {
@@ -78,6 +56,16 @@ export async function request<T>(input: string | URL, options: HttpOptions = {})
     headers,
     ...rest
   } = options;
+
+  if (
+    typeof window !== "undefined" &&
+    !skipAuthRedirect &&
+    useAuthStore.getState().isAuthenticated &&
+    !hasStoredSession()
+  ) {
+    notifySessionExpired();
+    throw new HttpError("Tu sesión expiró. Inicia sesión nuevamente.", 401);
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
