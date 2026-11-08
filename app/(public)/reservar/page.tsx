@@ -17,6 +17,14 @@ interface ReservaForm {
   mesaId: string;
 }
 
+interface MesaOption {
+  id: number;
+  numero: string;
+  zona: string | null;
+  capacidad: number | null;
+  estado: string;
+}
+
 type FormErrors = Partial<Record<keyof ReservaForm, string>>;
 
 const initialForm: ReservaForm = {
@@ -28,18 +36,21 @@ const initialForm: ReservaForm = {
 };
 
 export default function FormularioReservaPage() {
-  const [mesas, setMesas] = useState<any[]>([]);
+  const [mesas, setMesas] = useState<MesaOption[]>([]);
   const [loadingMesas, setLoadingMesas] = useState(true);
   const [enviado, setEnviado] = useState(false);
   const [formData, setFormData] = useState<ReservaForm>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     http
-      .get<any[]>("/api/mesas", { skipAuthRedirect: true })
-      .then((data) => setMesas(Array.isArray(data) ? data.filter((mesa) => mesa.estado === "Libre") : []))
+      .get<MesaOption[]>("/api/mesas", { skipAuthRedirect: true })
+      .then((data) =>
+        setMesas(Array.isArray(data) ? data.filter((mesa) => mesa.estado === "Libre") : [])
+      )
       .catch(() => setMesas([]))
       .finally(() => setLoadingMesas(false));
   }, []);
@@ -49,22 +60,50 @@ export default function FormularioReservaPage() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
+  const mesaSeleccionada = mesas.find((mesa) => String(mesa.id) === formData.mesaId);
+
   const validate = () => {
     const next: FormErrors = {};
     if (!formData.clienteNombre.trim()) next.clienteNombre = "Ingresa tu nombre.";
     if (!/^[0-9]{9}$/.test(formData.clienteTelefono)) {
       next.clienteTelefono = "El teléfono debe tener exactamente 9 dígitos numéricos.";
     }
-    if (!formData.fechaReserva) next.fechaReserva = "Selecciona la fecha y hora de tu reserva.";
-    if (!formData.mesaId) next.mesaId = "Debes elegir una mesa.";
+    if (!formData.fechaReserva) {
+      next.fechaReserva = "Selecciona la fecha y hora de tu reserva.";
+    } else if (new Date(formData.fechaReserva).getTime() < Date.now()) {
+      next.fechaReserva = "La fecha y hora deben ser futuras.";
+    }
+    if (!formData.mesaId) {
+      next.mesaId = "Debes elegir una mesa.";
+    } else if (mesaSeleccionada?.capacidad && Number(formData.numPersonas) > mesaSeleccionada.capacidad) {
+      next.numPersonas = `La mesa ${mesaSeleccionada.numero} admite hasta ${mesaSeleccionada.capacidad} personas.`;
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!validate()) return;
-    setConfirmOpen(true);
+
+    setChecking(true);
+    try {
+      const disponibilidad = await http.get<{ disponible: boolean; message: string }>(
+        `/api/public/reservas?mesaId=${formData.mesaId}&fecha=${encodeURIComponent(formData.fechaReserva)}`,
+        { skipAuthRedirect: true }
+      );
+
+      if (!disponibilidad.disponible) {
+        setErrors((prev) => ({ ...prev, fechaReserva: disponibilidad.message }));
+        return;
+      }
+
+      setConfirmOpen(true);
+    } catch {
+      toastError("No se pudo verificar la disponibilidad", "Inténtalo nuevamente en unos segundos.");
+    } finally {
+      setChecking(false);
+    }
   };
 
   const confirmarReserva = async () => {
@@ -74,8 +113,12 @@ export default function FormularioReservaPage() {
 
       setConfirmOpen(false);
       setEnviado(true);
-    } catch {
-      toastError("No pudimos procesar tu reserva", "Inténtalo nuevamente en unos segundos.");
+    } catch (error) {
+      const data = (error as { data?: { message?: string } })?.data;
+      toastError(
+        "No pudimos procesar tu reserva",
+        data?.message ?? "Inténtalo nuevamente en unos segundos."
+      );
     } finally {
       setSending(false);
     }
@@ -190,6 +233,7 @@ export default function FormularioReservaPage() {
                 value={formData.numPersonas}
                 onChange={(event) => updateField("numPersonas", event.target.value)}
                 className={selectBase}
+                aria-describedby={errors.numPersonas ? "reserva-personas-error" : undefined}
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                   <option key={n} value={n}>
@@ -197,6 +241,7 @@ export default function FormularioReservaPage() {
                   </option>
                 ))}
               </select>
+              {errors.numPersonas && <FieldError id="reserva-personas-error">{errors.numPersonas}</FieldError>}
             </div>
           </div>
 
@@ -223,10 +268,15 @@ export default function FormularioReservaPage() {
               ))}
             </select>
             {errors.mesaId && <FieldError id="reserva-mesa-error">{errors.mesaId}</FieldError>}
+            {mesaSeleccionada?.capacidad && (
+              <p className="mt-1.5 text-sm text-slate-600">
+                Capacidad máxima: {mesaSeleccionada.capacidad} personas.
+              </p>
+            )}
           </div>
 
-          <Button type="submit" size="lg" className="w-full" disabled={loadingMesas}>
-            Confirmar reserva
+          <Button type="submit" size="lg" className="w-full" disabled={loadingMesas} loading={checking}>
+            {checking ? "Verificando disponibilidad..." : "Confirmar reserva"}
           </Button>
         </form>
       </div>

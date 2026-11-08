@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const productos = await prisma.producto.findMany({
-      // Opcional: solo traer productos que tengan stock o estén activos
+      where: { activo: true },
+      include: { categoria: { select: { id: true, nombre: true, icono: true } } },
       orderBy: { nombre: 'asc' }
     });
     return NextResponse.json(productos);
