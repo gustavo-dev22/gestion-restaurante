@@ -3,6 +3,7 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE,
   createSessionToken,
+  isSessionCookieSecure,
 } from "@/lib/auth/session";
 import { getHomePath, getRoleName, getSections, type AuthUserLike } from "@/lib/roles";
 import { sasiLoginRequest } from "@/lib/sasi";
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
       value: sessionToken,
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: isSessionCookieSecure(),
       path: "/",
       maxAge: SESSION_MAX_AGE,
     });

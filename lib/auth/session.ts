@@ -6,6 +6,18 @@
 export const SESSION_COOKIE = "gr_session";
 export const SESSION_MAX_AGE = 60 * 60 * 8; // 8 horas
 
+/**
+ * Permite operar sobre HTTP en una red local (tablets del salón) sin romper
+ * el login. En producción con HTTPS se mantiene `secure=true` por defecto.
+ * Configúralo con SESSION_COOKIE_SECURE=true|false.
+ */
+export function isSessionCookieSecure() {
+  const flag = process.env.SESSION_COOKIE_SECURE?.toLowerCase();
+  if (flag === "false") return false;
+  if (flag === "true") return true;
+  return process.env.NODE_ENV === "production";
+}
+
 export interface SessionPayload {
   sub: string;
   nombre: string;
