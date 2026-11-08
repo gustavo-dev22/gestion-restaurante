@@ -40,7 +40,7 @@ export default function Sidebar() {
   return (
     <aside className="w-72 bg-slate-900 text-white min-h-screen p-4 flex flex-col shadow-xl">
       <div className="mb-8 px-2 border-b border-slate-800 pb-4">
-        <h2 className="text-xl font-bold text-blue-400">Restaurante Pro</h2>
+        <h2 className="text-xl font-bold text-blue-400">Gestión Restaurante</h2>
         <div className="mt-2">
           <p className="text-sm font-medium text-slate-200 break-words leading-tight">
             {user?.nombreCompleto}

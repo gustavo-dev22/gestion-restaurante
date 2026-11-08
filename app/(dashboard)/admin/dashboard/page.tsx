@@ -2,27 +2,58 @@
 import { useEffect, useState } from 'react';
 import { 
   Package, Layers, LayoutGrid, AlertTriangle, 
-  CheckCircle, Users, ArrowRight, Loader2 
+  CheckCircle, ArrowRight, Loader2, AlertCircle 
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchStats = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/dashboard/stats');
+      if (!res.ok) throw new Error('Respuesta no válida');
+      const data = await res.json();
+      if (!data || typeof data !== 'object') throw new Error('Datos inválidos');
+      setStats(data);
+    } catch {
+      setStats(null);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/dashboard/stats')
-      .then(res => res.json())
-      .then(data => {
-        setStats(data);
-        setLoading(false);
-      });
+    fetchStats();
   }, []);
 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
         <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <AlertCircle className="text-rose-500" size={48} />
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">No se pudo cargar el panel</h2>
+          <p className="text-slate-500">Revisa la conexión con el servidor e inténtalo de nuevo.</p>
+        </div>
+        <button
+          onClick={fetchStats}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }

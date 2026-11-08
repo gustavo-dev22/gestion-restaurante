@@ -3,9 +3,30 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   ShoppingCart, Plus, Minus, ChevronLeft, 
-  Loader2, Save, Tag, UtensilsCrossed 
+  Loader2, Save, UtensilsCrossed 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+
+function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="h-full w-full rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+        <UtensilsCrossed size={28} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      className="h-full w-full rounded-xl object-cover"
+      alt={alt}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 export default function TomaPedidoPage() {
   const params = useParams();
@@ -222,11 +243,7 @@ export default function TomaPedidoPage() {
                       className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all flex gap-4 group relative overflow-hidden"
                     >
                       <div className="relative h-20 w-20 flex-shrink-0">
-                        <img 
-                          src={prod.imagen_url || '/placeholder.png'} 
-                          className="h-full w-full rounded-xl object-cover" 
-                          alt={prod.nombre} 
-                        />
+                        <ProductThumb src={prod.imagen_url} alt={prod.nombre} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">

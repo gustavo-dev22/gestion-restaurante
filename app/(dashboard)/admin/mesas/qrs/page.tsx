@@ -6,12 +6,19 @@ import { Printer, Loader2, QrCode } from 'lucide-react';
 export default function GenerarQRPage() {
   const [mesas, setMesas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [origen, setOrigen] = useState('');
 
   useEffect(() => {
     fetch('/api/mesas')
       .then(res => res.json())
       .then(data => {
-        setMesas(data);
+        setOrigen(window.location.origin);
+        setMesas(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setMesas([]);
+      })
+      .finally(() => {
         setLoading(false);
       });
   }, []);
@@ -47,13 +54,19 @@ export default function GenerarQRPage() {
             <h2 className="text-4xl font-black text-slate-800 mb-6">{mesa.numero}</h2>
             
             <div className="bg-white p-4 rounded-3xl border-4 border-slate-50 mb-6 shadow-inner">
-              <QRCodeSVG 
-                // Esta URL es la que el cliente visitará
-                value={`${window.location.origin}/cliente/mesa/${mesa.id}`}
-                size={160}
-                level={"H"}
-                includeMargin={false}
-              />
+              {origen ? (
+                <QRCodeSVG 
+                  // Esta URL es la que el cliente visitará
+                  value={`${origen}/cliente/mesa/${mesa.id}`}
+                  size={160}
+                  level={"H"}
+                  includeMargin={false}
+                />
+              ) : (
+                <div className="size-[160px] flex items-center justify-center text-slate-300">
+                  <QrCode size={48} />
+                </div>
+              )}
             </div>
             
             <p className="text-[9px] text-slate-300 font-mono mb-4">ID_REF: {mesa.id}</p>

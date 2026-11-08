@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Clock, CheckCircle2, Flame, Utensils, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -9,31 +9,52 @@ export default function ComandasCocinaPage() {
   const [areaActual, setAreaActual] = useState('Cocina');
   const [isFading, setIsFading] = useState(false);
 
-  const fetchComandas = async () => {
-    setIsFading(true);
-    setLoading(true);
+  const fetchComandas = useCallback(async (silent = false) => {
+    if (!silent) {
+      setIsFading(true);
+      setLoading(true);
+    }
     try {
       const res = await fetch(`/api/cocina/comandas?area=${areaActual}`);
       const data = await res.json();
-      
-      setTimeout(() => {
-        setComandas(data);
-        setLoading(false);
-        setIsFading(false); // Iniciamos animación de entrada
-      }, 200); // Pequeño delay para que la vista respire
+      setComandas(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error al filtrar:", error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+        setIsFading(false);
+      }
     }
-  };
+  }, [areaActual]);
 
   useEffect(() => {
     fetchComandas();
-    // Opcional: Refresco automático cada 30 segundos
-    const interval = setInterval(fetchComandas, 30000);
+    // Refresco silencioso cada 30 segundos (sin spinner a pantalla completa)
+    const interval = setInterval(() => fetchComandas(true), 30000);
     return () => clearInterval(interval);
-  }, [areaActual]);
+  }, [fetchComandas]);
+
+  // Tiempo transcurrido real desde la creación del pedido
+  const formatTiempoTranscurrido = (fecha: string | null | undefined) => {
+    if (!fecha) return '—';
+    const inicio = new Date(fecha);
+    if (isNaN(inicio.getTime())) return '—';
+
+    // La fecha de la BD no incluye zona horaria; ajustamos al huso del navegador
+    let minutos = Math.floor((Date.now() - inicio.getTime()) / 60000) - new Date().getTimezoneOffset();
+    if (minutos < 0) minutos = 0;
+
+    if (minutos < 60) return `${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    const mins = minutos % 60;
+    if (horas >= 24) {
+      const dias = Math.floor(horas / 24);
+      const horasRestantes = horas % 24;
+      return `${dias}d ${horasRestantes}h ${mins}m`;
+    }
+    return `${horas}h ${mins}m`;
+  };
 
   const getLabelPendientes = (area: string, cantidad: number) => {
     const n = area.toLowerCase();
@@ -149,7 +170,7 @@ export default function ComandasCocinaPage() {
                   Mesa {comanda.pedido.mesa.numero}
                 </span>
                 <div className="flex items-center gap-1 text-slate-400 text-xs font-bold">
-                  <Clock size={14} /> 10 min
+                  <Clock size={14} /> {formatTiempoTranscurrido(comanda.pedido?.fecha_creacion)}
                 </div>
               </div>
 

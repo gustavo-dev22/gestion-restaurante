@@ -1,14 +1,31 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Star, Zap, Puzzle, Trash2, Info } from 'lucide-react';
+import { Star, Zap, Puzzle, Trash2 } from 'lucide-react';
 
 export default function IngenieriaMenuPage() {
   const [reporte, setReporte] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchReporte = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/admin/reportes/ingenieria');
+      if (!res.ok) throw new Error('Respuesta no válida');
+      const data = await res.json();
+      if (!Array.isArray(data?.matriz)) throw new Error('Datos incompletos');
+      setReporte(data);
+    } catch {
+      setReporte(null);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/admin/reportes/ingenieria')
-      .then(res => res.json())
-      .then(data => setReporte(data));
+    fetchReporte();
   }, []);
 
   const getIcon = (cat: string) => {
@@ -29,7 +46,17 @@ export default function IngenieriaMenuPage() {
     }
   };
 
-  if (!reporte) return <div className="p-10 text-center font-bold">Analizando rentabilidad...</div>;
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Analizando rentabilidad...</span></div>;
+
+  if (error || !reporte) {
+    return (
+      <div className="p-10 flex flex-col items-center justify-center gap-4 text-center">
+        <p className="text-lg font-bold text-slate-700">No se pudo cargar el reporte</p>
+        <p className="text-slate-500">Intenta nuevamente en unos segundos.</p>
+        <button onClick={fetchReporte} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">Reintentar</button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">

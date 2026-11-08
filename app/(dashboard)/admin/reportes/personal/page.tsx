@@ -1,15 +1,43 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Medal, TrendingUp, ShoppingBag, DollarSign, Award } from 'lucide-react';
+import { Medal, TrendingUp, Award } from 'lucide-react';
 
 export default function DesempenoPersonalPage() {
   const [ranking, setRanking] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchRanking = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/admin/reportes/personal');
+      if (!res.ok) throw new Error('Respuesta no válida');
+      const data = await res.json();
+      setRanking(Array.isArray(data) ? data : []);
+    } catch {
+      setRanking([]);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/admin/reportes/personal')
-      .then(res => res.json())
-      .then(data => setRanking(data));
+    fetchRanking();
   }, []);
+
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Cargando desempeño...</span></div>;
+
+  if (error) {
+    return (
+      <div className="p-10 flex flex-col items-center justify-center gap-4 text-center">
+        <p className="text-lg font-bold text-slate-700">No se pudo cargar el reporte</p>
+        <p className="text-slate-500">Intenta nuevamente en unos segundos.</p>
+        <button onClick={fetchRanking} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">Reintentar</button>
+      </div>
+    );
+  }
 
   if (ranking.length === 0) return <div className="p-10 text-center font-bold text-slate-400">Sin datos de ventas aún...</div>;
 

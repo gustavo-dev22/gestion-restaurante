@@ -1,17 +1,46 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Package, DollarSign, BarChart2, ArrowDownCircle } from 'lucide-react';
+import { AlertTriangle, Package, DollarSign, ArrowDownCircle } from 'lucide-react';
 
 export default function InventarioReportePage() {
   const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/admin/reportes/inventario');
+      if (!res.ok) throw new Error('Respuesta no válida');
+      const json = await res.json();
+      if (!json?.resumen || !Array.isArray(json?.critico)) {
+        throw new Error('Datos incompletos');
+      }
+      setData(json);
+    } catch {
+      setData(null);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/admin/reportes/inventario')
-      .then(res => res.json())
-      .then(json => setData(json));
+    fetchData();
   }, []);
 
-  if (!data) return <div className="p-10 text-center font-bold">Escaneando almacén...</div>;
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Escaneando almacén...</span></div>;
+
+  if (error || !data) {
+    return (
+      <div className="p-10 flex flex-col items-center justify-center gap-4 text-center">
+        <p className="text-lg font-bold text-slate-700">No se pudo cargar el reporte</p>
+        <p className="text-slate-500">Intenta nuevamente en unos segundos.</p>
+        <button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">Reintentar</button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">

@@ -71,7 +71,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Restaurante Pro</h1>
+            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Gestión Restaurante</h1>
             <p className="text-slate-500 mt-2">Gestión Centralizada SASI</p>
           </div>
 
