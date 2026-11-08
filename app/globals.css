@@ -12,38 +12,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-}
-
-next-route-announcer, 
-#next-live-preview-box,
-svg[viewBox="0 0 40 40"] {
-  display: none !important;
-  visibility: hidden !important;
-}
-
-/* Evitar el scroll horizontal y saltos de layout al abrir modales */
-body.swal2-shown {
-  padding-right: 0 !important;
-  overflow-y: auto !important;
-}
-
-.swal2-container {
-  overflow-x: hidden;
-}
-
-/* Ajuste para que los inputs de Swal no hereden márgenes extraños de Tailwind */
-.swal2-input, .swal2-textarea {
-  margin: 1em auto !important;
-  box-sizing: border-box !important;
 }

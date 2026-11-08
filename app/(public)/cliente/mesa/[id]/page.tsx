@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState, use } from 'react';
 import { Utensils, ShoppingCart, Plus, RefreshCw, Check, AlertCircle } from 'lucide-react';
-import Swal from 'sweetalert2';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { toastSuccess, toastError, toastInfo } from '@/components/ui/Toast';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -16,6 +17,8 @@ export default function MenuDigitalPage({ params }: PageProps) {
     const [loading, setLoading] = useState(true);
     const [estadoMesa, setEstadoMesa] = useState<string>('Libre'); // Nuevo estado
     const [numeroMesa, setNumeroMesa] = useState<string>('');
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [sending, setSending] = useState(false);
 
     useEffect(() => {
       const cargarDatos = async () => {
@@ -62,43 +65,32 @@ export default function MenuDigitalPage({ params }: PageProps) {
         });
     };
 
-    const enviarPedido = async () => {
+    const confirmarPedido = async () => {
         const total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
-        
-        const confirm = await Swal.fire({
-            title: '¿Confirmar Pedido?',
-            text: `Total a pagar: S/ ${total.toFixed(2)}`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, enviar pedido',
-            allowEscapeKey: false,
-            allowOutsideClick: false
-        });
+        setSending(true);
+        try {
+            const res = await fetch('/api/public/pedido', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mesaId, items: carrito, total }),
+            });
 
-        if (confirm.isConfirmed) {
-        Swal.fire({ title: 'Enviando a cocina...', allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+            if (!res.ok) throw new Error();
 
-        const res = await fetch('/api/public/pedido', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                mesaId: mesaId,
-                items: carrito,
-                total: total
-            })
-        });
-
-        if (res.ok) {
-            Swal.fire('¡Pedido Recibido!', 'Tu orden está siendo procesada.', 'success');
+            setConfirmOpen(false);
             setCarrito([]);
-        }
+            toastSuccess('¡Pedido recibido!', 'Tu orden está siendo procesada.');
+        } catch {
+            toastError('No se pudo enviar el pedido', 'Intenta nuevamente en unos segundos.');
+        } finally {
+            setSending(false);
         }
     };
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <RefreshCw className="animate-spin text-blue-600 mb-4" size={40} />
-      <p className="font-bold text-slate-400">Verificando mesa...</p>
+      <p className="font-bold text-slate-600">Verificando mesa...</p>
     </div>
   );
 
@@ -110,7 +102,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
           <AlertCircle size={60} className="text-rose-600" />
         </div>
         <h1 className="text-3xl font-black text-slate-800 uppercase italic mb-2">Mesa {numeroMesa}</h1>
-        <div className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 ${
+        <div className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-6 ${
           estadoMesa === 'Ocupada' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'
         }`}>
           Estado: {estadoMesa}
@@ -120,17 +112,16 @@ export default function MenuDigitalPage({ params }: PageProps) {
         </p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button 
-            onClick={() => {
-              Swal.fire('¡Aviso Enviado!', 'Un mesero se acercará a tu mesa en breve.', 'success');
-              // Aquí podrías disparar un fetch a tu API de notificaciones
-            }}
-            className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+            type="button"
+            onClick={() => toastInfo('Solicita ayuda', 'Por favor, llama a un mesero para continuar.')}
+            className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-lg transition-all hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             Llamar al Mesero
           </button>
           <button 
+            type="button"
             onClick={() => window.location.reload()}
-            className="text-slate-400 text-xs font-bold uppercase hover:text-slate-600 transition-colors"
+            className="text-sm font-bold uppercase text-slate-600 transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Actualizar Estado
           </button>
@@ -144,7 +135,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
       {/* Header Visual */}
       <div className="bg-slate-900 text-white p-8 rounded-b-[3rem] shadow-xl mb-6">
         <h1 className="text-3xl font-black italic tracking-tighter">CARTA DIGITAL</h1>
-        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Mesa #{mesaId}</p>
+        <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">Mesa #{numeroMesa || mesaId}</p>
       </div>
 
       <div className="px-4 space-y-4">
@@ -159,13 +150,15 @@ export default function MenuDigitalPage({ params }: PageProps) {
             <div className="flex-1 flex flex-col justify-between">
               <div>
                 <h3 className="font-bold text-slate-800 leading-tight">{prod.nombre}</h3>
-                <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{prod.descripcion}</p>
+                <p className="text-xs text-slate-600 mt-1 line-clamp-2">{prod.descripcion}</p>
               </div>
               <div className="flex justify-between items-center mt-2">
                 <span className="font-black text-blue-600 italic">S/ {Number(prod.precio).toFixed(2)}</span>
                 <button 
+                  type="button"
                   onClick={() => agregarAlCarrito(prod)}
-                  className="bg-blue-600 text-white p-2 rounded-xl hover:scale-110 transition-transform shadow-lg shadow-blue-100"
+                  aria-label={`Agregar ${prod.nombre} al pedido`}
+                  className="rounded-xl bg-blue-600 p-2 text-white shadow-lg shadow-blue-100 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 >
                   <Plus size={18} />
                 </button>
@@ -179,7 +172,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
       {carrito.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-slate-100 p-6 rounded-t-[3rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-full duration-500 z-50">
             <div className="max-w-md mx-auto">
-            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex justify-between">
+            <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-4 flex justify-between">
                 Tu Pedido <span>{carrito.length} ítems</span>
             </h4>
             
@@ -188,12 +181,12 @@ export default function MenuDigitalPage({ params }: PageProps) {
                 {carrito.map((item) => (
                 <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
                     <div className="flex items-center gap-3">
-                    <span className="bg-blue-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full">
+                    <span className="bg-blue-600 text-white text-xs font-bold h-5 w-5 flex items-center justify-center rounded-full">
                         {item.cantidad}
                     </span>
                     <span className="text-sm font-bold text-slate-700">{item.nombre}</span>
                     </div>
-                    <span className="text-sm font-black text-slate-400">
+                    <span className="text-sm font-black text-slate-600">
                     S/ {(item.precio * item.cantidad).toFixed(2)}
                     </span>
                 </div>
@@ -202,8 +195,9 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
             {/* Botón de Envío */}
             <button 
-                onClick={enviarPedido}
-                className="w-full bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center hover:bg-blue-600 transition-all active:scale-95"
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                className="flex w-full items-center justify-between rounded-2xl bg-slate-900 p-5 text-white shadow-xl transition-all hover:bg-blue-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
                 <div className="flex items-center gap-3">
                 <ShoppingCart size={20} className="text-blue-400" />
@@ -214,6 +208,19 @@ export default function MenuDigitalPage({ params }: PageProps) {
             </div>
         </div>
         )}
+
+        <ConfirmDialog
+            open={confirmOpen}
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={confirmarPedido}
+            title="¿Confirmar pedido?"
+            description={`Total a pagar: S/ ${carrito
+                .reduce((acc, item) => acc + item.precio * item.cantidad, 0)
+                .toFixed(2)}`}
+            confirmLabel="Sí, enviar pedido"
+            variant="default"
+            loading={sending}
+        />
     </div>
   );
 }

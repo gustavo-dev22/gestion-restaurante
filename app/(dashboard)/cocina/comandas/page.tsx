@@ -1,13 +1,16 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { Clock, CheckCircle2, Flame, Utensils, Loader2 } from 'lucide-react';
-import Swal from 'sweetalert2';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { toastSuccess, toastError } from '@/components/ui/Toast';
 
 export default function ComandasCocinaPage() {
   const [comandas, setComandas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [areaActual, setAreaActual] = useState('Cocina');
   const [isFading, setIsFading] = useState(false);
+  const [pendiente, setPendiente] = useState<{ id: number; nombre: string } | null>(null);
+  const [completando, setCompletando] = useState(false);
 
   const fetchComandas = useCallback(async (silent = false) => {
     if (!silent) {
@@ -67,56 +70,31 @@ export default function ComandasCocinaPage() {
     return `${cantidad} ${label}`;
   };
 
-  const getTerminoConfirmacion = (area: string) => {
-    const n = area.toLowerCase();
-    if (n === 'bebidas') return '¿Bebida lista?';
-    if (n === 'postres') return '¿Postre listo?';
-    return '¿Plato terminado?'; // Default para cocina
-  };
-
-  const completarPlato = async (detalleId: number, nombre: string) => {
-    const tituloConfirmacion = getTerminoConfirmacion(areaActual);
-    const result = await Swal.fire({
-        title: tituloConfirmacion,
-        text: `Confirmar que "${nombre}" ya salió de la estación de ${areaActual}.`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '¡Listo!',
-        cancelButtonText: 'No, esperar',
-        confirmButtonColor: areaActual === 'Bebidas' ? '#3b82f6' : '#10b981',
-        allowEscapeKey: false,
-        allowOutsideClick: false
-    });
-
-    if (result.isConfirmed) {
-        Swal.fire({ title: 'Actualizando...', didOpen: () => Swal.showLoading() });
-
-        const res = await fetch('/api/cocina/comandas', {
+  const completarPlato = async () => {
+    if (!pendiente) return;
+    setCompletando(true);
+    try {
+      const res = await fetch('/api/cocina/comandas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            detalleId: detalleId, 
-            nuevoEstado: 'Listo' 
-        })
-        });
+        body: JSON.stringify({
+          detalleId: pendiente.id,
+          nuevoEstado: 'Listo',
+        }),
+      });
 
-        if (res.ok) {
-          // Quitamos el plato de la lista localmente
-          setComandas(prev => prev.filter(c => c.id !== detalleId));
-          // Notificación rápida de éxito (Toast)
-          const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 2000,
-            timerProgressBar: true
-          });
+      if (!res.ok) throw new Error();
 
-          Toast.fire({
-            icon: 'success',
-            title: areaActual === 'Bar' ? 'Bebida despachada' : 'Plato despachado'
-          });
-        }
+      setComandas((prev) => prev.filter((comanda) => comanda.id !== pendiente.id));
+      toastSuccess(
+        areaActual === 'Bebidas' ? 'Bebida despachada' : 'Plato despachado',
+        pendiente.nombre
+      );
+      setPendiente(null);
+    } catch {
+      toastError('No se pudo actualizar', 'Intenta nuevamente en unos segundos.');
+    } finally {
+      setCompletando(false);
     }
   };
 
@@ -184,7 +162,7 @@ export default function ComandasCocinaPage() {
             </div>
 
             <button 
-              onClick={() => completarPlato(comanda.id, comanda.producto.nombre)}
+              onClick={() => setPendiente({ id: comanda.id, nombre: comanda.producto.nombre })}
               className={`w-full py-4 font-bold flex items-center justify-center gap-2 transition-all ${
                 areaActual === 'Bar' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-emerald-500 hover:bg-emerald-600'
               } text-white`}
@@ -197,11 +175,29 @@ export default function ComandasCocinaPage() {
       </div>
 
       {comandas.length === 0 && (
-        <div className="text-center py-20 opacity-20">
+        <div className="text-center py-20 opacity-40">
           <Utensils size={80} className="mx-auto mb-4" />
           <p className="text-2xl font-bold">¡Cocina limpia! Sin pendientes.</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendiente)}
+        onClose={() => setPendiente(null)}
+        onConfirm={completarPlato}
+        title={
+          areaActual === "Bebidas"
+            ? "¿Bebida lista?"
+            : areaActual === "Postres"
+              ? "¿Postre listo?"
+              : "¿Plato terminado?"
+        }
+        description={pendiente ? `Confirmar que "${pendiente.nombre}" ya salió de la estación de ${areaActual}.` : undefined}
+        confirmLabel="Sí, listo"
+        cancelLabel="No, esperar"
+        variant="success"
+        loading={completando}
+      />
     </div>
   );
 }

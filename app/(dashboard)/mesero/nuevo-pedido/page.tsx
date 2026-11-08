@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Utensils, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
-import Swal from 'sweetalert2';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { toastError } from '@/components/ui/Toast';
 
 export default function NuevoPedidoQuickPage() {
   const [mesasLibres, setMesasLibres] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openingId, setOpeningId] = useState<number | null>(null);
   const router = useRouter();
 
   const usuario = useAuthStore((state) => state.user);
@@ -25,21 +26,25 @@ export default function NuevoPedidoQuickPage() {
 
   const abrirMesaRapido = async (mesaId: number) => {
     if (!usuario?.id) {
-      return Swal.fire('Error de sesión', 'No se pudo identificar al mesero.', 'error');
+      toastError("Sesión no válida", "No se pudo identificar al mesero.");
+      return;
     }
 
-    Swal.fire({ title: 'Abriendo mesa...', didOpen: () => Swal.showLoading() });
+    setOpeningId(mesaId);
+    try {
+      const res = await fetch('/api/mesero/salon', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mesaId, usuarioId: usuario.id, nombreMesero: usuario.nombreCompleto }),
+      });
 
-    const res = await fetch('/api/mesero/salon', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mesaId, usuarioId: usuario.id, nombreMesero: usuario.nombreCompleto })
-    });
+      if (!res.ok) throw new Error();
 
-    if (res.ok) {
       const data = await res.json();
-      Swal.close();
       router.push(`/mesero/pedido/${data.pedido.id}`);
+    } catch {
+      toastError("No se pudo abrir la mesa", "Intenta nuevamente en unos segundos.");
+      setOpeningId(null);
     }
   };
 
@@ -62,19 +67,25 @@ export default function NuevoPedidoQuickPage() {
           mesasLibres.map((mesa) => (
             <button
               key={mesa.id}
+              type="button"
+              disabled={openingId === mesa.id}
               onClick={() => abrirMesaRapido(mesa.id)}
-              className="bg-white border border-slate-200 p-5 rounded-2xl flex justify-between items-center hover:border-blue-500 hover:shadow-md transition-all group"
+              className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:border-blue-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-60"
             >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-slate-100 rounded-xl text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                <div className="rounded-xl bg-slate-100 p-3 text-slate-600 transition-colors group-hover:bg-blue-50 group-hover:text-blue-600">
                   <Utensils size={24} />
                 </div>
                 <div className="text-left">
-                  <p className="font-bold text-slate-800 text-lg">{mesa.numero}</p>
-                  <p className="text-xs text-slate-400">{mesa.zona} • Capacidad: {mesa.capacidad}</p>
+                  <p className="text-lg font-bold text-slate-800">{mesa.numero}</p>
+                  <p className="text-sm text-slate-600">{mesa.zona} • Capacidad: {mesa.capacidad}</p>
                 </div>
               </div>
-              <ArrowRight className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+              {openingId === mesa.id ? (
+                <Loader2 className="animate-spin text-blue-600" size={20} />
+              ) : (
+                <ArrowRight className="text-slate-500 transition-colors group-hover:text-blue-500" />
+              )}
             </button>
           ))
         )}

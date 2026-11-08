@@ -35,7 +35,7 @@ export default function IngenieriaMenuPage() {
       case 'ESTRELLA': return <Star className="text-amber-500" />;
       case 'CABALLO': return <Zap className="text-blue-500" />;
       case 'ROMPECABEZAS': return <Puzzle className="text-purple-500" />;
-      default: return <Trash2 className="text-slate-400" />;
+      default: return <Trash2 className="text-slate-600" />;
     }
   };
 
@@ -48,7 +48,7 @@ export default function IngenieriaMenuPage() {
     }
   };
 
-  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Analizando rentabilidad...</span></div>;
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-600">Analizando rentabilidad...</span></div>;
 
   if (error || !reporte) {
     return (
@@ -77,7 +77,7 @@ export default function IngenieriaMenuPage() {
             <p className="text-2xl font-black text-slate-800">
                 {reporte.matriz.filter((p:any) => p.clasificacion === cat).length}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold">Platos identificados</p>
+            <p className="text-xs text-slate-500 mt-1 uppercase font-bold">Platos identificados</p>
           </div>
         ))}
       </div>
@@ -86,11 +86,11 @@ export default function IngenieriaMenuPage() {
         <DataTable>
           <thead className="bg-slate-50 border-b-2 border-slate-100">
             <tr>
-              <th className="p-6 text-xs font-black uppercase text-slate-400">Plato</th>
-              <th className="p-6 text-xs font-black uppercase text-slate-400 text-center">Ventas (Cant)</th>
-              <th className="p-6 text-xs font-black uppercase text-slate-400 text-center">Margen Est.</th>
-              <th className="p-6 text-xs font-black uppercase text-slate-400">Clasificación</th>
-              <th className="p-6 text-xs font-black uppercase text-slate-400">Acción Sugerida</th>
+              <th className="p-6 text-xs font-black uppercase text-slate-600">Plato</th>
+              <th className="p-6 text-xs font-black uppercase text-slate-600 text-center">Ventas (Cant)</th>
+              <th className="p-6 text-xs font-black uppercase text-slate-600 text-center">Margen Est.</th>
+              <th className="p-6 text-xs font-black uppercase text-slate-600">Clasificación</th>
+              <th className="p-6 text-xs font-black uppercase text-slate-600">Acción Sugerida</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -102,11 +102,11 @@ export default function IngenieriaMenuPage() {
                 <td className="p-6">
                    <div className="flex items-center gap-2">
                      {getIcon(p.clasificacion)}
-                     <span className="text-[10px] font-black">{p.clasificacion}</span>
+                     <span className="text-xs font-black">{p.clasificacion}</span>
                    </div>
                 </td>
                 <td className="p-6">
-                    <span className="text-[10px] bg-white border border-slate-200 px-3 py-1 rounded-full font-bold text-slate-500">
+                    <span className="text-xs bg-white border border-slate-200 px-3 py-1 rounded-full font-bold text-slate-500">
                         {p.clasificacion === 'ESTRELLA' && "Promocionar más"}
                         {p.clasificacion === 'CABALLO' && "Revisar costos/receta"}
                         {p.clasificacion === 'ROMPECABEZAS' && "Mejorar visibilidad"}

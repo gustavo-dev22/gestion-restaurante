@@ -31,7 +31,7 @@ export default function HorasPicoPage() {
     fetchData();
   }, []);
 
-  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Analizando tráfico...</span></div>;
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-600">Analizando tráfico...</span></div>;
 
   if (error || !data) {
     return (
@@ -82,7 +82,7 @@ export default function HorasPicoPage() {
             return (
                 <div key={i} className="flex-1 flex flex-col items-center group relative h-full">
                 {/* Tooltip mejorado */}
-                <div className="absolute -top-10 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-lg z-20 whitespace-nowrap">
+                <div className="absolute -top-10 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg z-20 whitespace-nowrap">
                     {v.cantidad} pedidos
                 </div>
                 
@@ -98,7 +98,7 @@ export default function HorasPicoPage() {
                     ></div>
                 </div>
                 
-                <span className="text-[8px] text-slate-400 mt-2 font-medium">
+                <span className="text-xs text-slate-600 mt-2 font-medium">
                     {i % 3 === 0 ? v.hora : ''}
                 </span>
                 </div>

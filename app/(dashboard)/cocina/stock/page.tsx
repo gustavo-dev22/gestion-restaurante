@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Package, Search, Loader2 } from 'lucide-react';
-import Swal from 'sweetalert2';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Input } from '@/components/ui/Input';
+import { toastSuccess, toastError } from '@/components/ui/Toast';
 
 export default function InventarioRapidoPage() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -33,23 +33,15 @@ export default function InventarioRapidoPage() {
       });
 
       if (!res.ok) throw new Error();
-      
-      const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2000,
-        timerProgressBar: true
-      });
 
-      Toast.fire({
-        icon: 'success',
-        title: `${nombre} ahora está ${nuevoEstado ? 'Disponible' : 'AGOTADO'}`
-      });
+      toastSuccess(
+        `${nombre} ${nuevoEstado ? "disponible" : "agotado"}`,
+        nuevoEstado ? "El producto ya puede pedirse." : "El producto se marcó como agotado."
+      );
     } catch {
       // Si falla, revertimos el cambio en la UI
       setProductos(prev => prev.map(p => p.id === id ? { ...p, activo: estadoActual } : p));
-      Swal.fire('Error', 'No se pudo actualizar el estado', 'error');
+      toastError("No se pudo actualizar el estado", "Intenta nuevamente en unos segundos.");
     }
   };
 
@@ -69,7 +61,7 @@ export default function InventarioRapidoPage() {
 
       {/* Buscador Rápido */}
       <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
         <Input
           type="text"
           placeholder="Buscar plato o categoría..."
@@ -93,7 +85,7 @@ export default function InventarioRapidoPage() {
               </div>
               <div>
                 <h3 className={`font-bold ${prod.activo ? 'text-slate-800' : 'text-rose-900'}`}>{prod.nombre}</h3>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">
                   {prod.categoria.nombre}
                 </span>
               </div>

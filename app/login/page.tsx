@@ -1,119 +1,150 @@
-'use client';
-import { useState } from 'react';
-import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
-import { Loader2, Lock, User } from 'lucide-react';
-import Swal from 'sweetalert2'; // Importamos SweetAlert2
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
+import { useAuthStore } from "@/lib/store";
+import { Input } from "@/components/ui/Input";
+import { Label, FieldError } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [errors, setErrors] = useState<{ username?: string; password?: string; form?: string }>({});
+
   const setAuth = useAuthStore((state) => state.setAuth);
   const router = useRouter();
 
-  // Función para mostrar alertas rápidas
-  const showAlert = (message: string, icon: 'warning' | 'error' | 'success') => {
-    Swal.fire({
-      title: 'Atención',
-      text: message,
-      icon: icon,
-      confirmButtonColor: '#2563eb', // Azul acorde al diseño
-      confirmButtonText: 'Entendido',
-      allowEscapeKey: false,
-      allowOutsideClick: false
-    });
+  const validate = () => {
+    const next: typeof errors = {};
+    if (!username.trim()) next.username = "Ingresa tu nombre de usuario.";
+    if (!password.trim()) next.password = "Ingresa tu contraseña.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // --- VALIDACIONES DE CAMPOS ---
-    if (!username.trim()) {
-      showAlert('Por favor, ingresa tu nombre de usuario.', 'warning');
-      return;
-    }
-
-    if (!password.trim()) {
-      showAlert('La contraseña es obligatoria para ingresar.', 'warning');
-      return;
-    }
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!validate()) return;
 
     setIsLoading(true);
-    
+    setErrors({});
+
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
       });
 
       const data = await res.json();
 
-      // Ahora validamos con data.success que viene de nuestra API
       if (data.success) {
         setAuth(data.usuario, data.token);
-        router.push('/dashboard');
+        router.push("/dashboard");
       } else {
-        // Aquí es donde SweetAlert mostrará el mensaje que enviamos desde el backend
-        showAlert(data.message, 'error');
+        setErrors({ form: data.message || "Usuario o contraseña incorrectos." });
       }
-    } catch (err) {
-      showAlert('No se pudo conectar con SASI. Verifica tu conexión.', 'error');
+    } catch {
+      setErrors({ form: "No se pudo conectar con el servidor. Verifica tu conexión." });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 to-slate-800 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Gestión Restaurante</h1>
-            <p className="text-slate-500 mt-2">Gestión Centralizada SASI</p>
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestión Restaurante</h1>
+            <p className="mt-2 text-slate-600">Gestión Centralizada SASI</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
-                  placeholder="Usuario SASI"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                <input 
-                  type="password" 
-                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition duration-200 flex items-center justify-center disabled:opacity-70"
+          {errors.form && (
+            <div
+              role="alert"
+              className="mb-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-700"
             >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              ) : null}
-              {isLoading ? 'Autenticando...' : 'Entrar al Sistema'}
-            </button>
+              <AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>{errors.form}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <div>
+              <Label htmlFor="username" required>
+                Usuario
+              </Label>
+              <div className="relative">
+                <User
+                  className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="Usuario SASI"
+                  className="pl-10"
+                  value={username}
+                  onChange={(event) => {
+                    setUsername(event.target.value);
+                    if (errors.username) setErrors((prev) => ({ ...prev, username: undefined }));
+                  }}
+                  error={Boolean(errors.username)}
+                  aria-describedby={errors.username ? "username-error" : undefined}
+                  aria-required="true"
+                />
+              </div>
+              {errors.username && <FieldError id="username-error">{errors.username}</FieldError>}
+            </div>
+
+            <div>
+              <Label htmlFor="password" required>
+                Contraseña
+              </Label>
+              <div className="relative">
+                <Lock
+                  className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="pl-10 pr-11"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  }}
+                  error={Boolean(errors.password)}
+                  aria-describedby={errors.password ? "password-error" : undefined}
+                  aria-required="true"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-pressed={showPassword}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {errors.password && <FieldError id="password-error">{errors.password}</FieldError>}
+            </div>
+
+            <Button type="submit" size="lg" className="w-full" loading={isLoading}>
+              {isLoading ? "Autenticando..." : "Entrar al Sistema"}
+            </Button>
           </form>
         </div>
       </div>

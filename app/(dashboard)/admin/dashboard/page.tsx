@@ -107,7 +107,7 @@ export default function AdminDashboard() {
 
         {/* Alerta Stock */}
         <Card className={`${stats.stockBajo > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'} p-6 transition-colors`}>
-          <div className={`flex justify-between items-start mb-4 ${stats.stockBajo > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
+          <div className={`flex justify-between items-start mb-4 ${stats.stockBajo > 0 ? 'text-orange-600' : 'text-slate-600'}`}>
             <div className={`p-3 rounded-xl ${stats.stockBajo > 0 ? 'bg-orange-100' : 'bg-slate-50'}`}>
               <AlertTriangle size={24} />
             </div>
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
                 <div className="size-full rounded-full border-[12px] border-slate-100 flex items-center justify-center text-center">
                    <div>
                      <p className="text-2xl font-bold text-slate-800">{Math.round((stats.mesasOcupadas / stats.mesasTotal) * 100) || 0}%</p>
-                     <p className="text-[10px] uppercase text-slate-400 font-bold">Ocupado</p>
+                     <p className="text-xs uppercase text-slate-600 font-bold">Ocupado</p>
                    </div>
                 </div>
              </div>

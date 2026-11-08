@@ -54,7 +54,7 @@ export function DataTablePagination({
     >
       <div className="min-w-0">{info}</div>
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-slate-400">
+        <span className="text-xs font-semibold text-slate-600">
           Página {page} de {Math.max(totalPages, 1)}
         </span>
         <button

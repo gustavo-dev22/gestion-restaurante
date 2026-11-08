@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react';
 import { LayoutGrid, Loader2, Users, CalendarCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import Swal from 'sweetalert2';
 import { useAuthStore } from '@/lib/store';
 import NotificacionesMesero from '@/components/mesero/notificacionesMesero';
 import { PageHeader } from '@/components/ui/PageHeader';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { toastInfo, toastWarning, toastError } from '@/components/ui/Toast';
 
 export default function SalonMeseroPage() {
   const [mesas, setMesas] = useState<any[]>([]);
@@ -41,64 +42,70 @@ export default function SalonMeseroPage() {
     }
   };
 
-  const handleInteraccionMesa = async (mesa: any) => {
-    if (mesa.estado === 'Libre') {
-      const result = await Swal.fire({
-        title: `¿Abrir ${mesa.numero}?`,
-        text: "Se iniciará un nuevo pedido para esta mesa.",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, abrir mesa',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#10b981',
-        allowEscapeKey: false,
-        allowOutsideClick: false
+  const [openTarget, setOpenTarget] = useState<any | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [checkingId, setCheckingId] = useState<number | null>(null);
+
+  const abrirMesa = async () => {
+    if (!openTarget) return;
+    setOpening(true);
+    try {
+      const res = await fetch("/api/mesero/salon", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mesaId: openTarget.id,
+          usuarioId: usuario.id,
+          nombreMesero: usuario.nombreCompleto,
+        }),
       });
 
-      if (result.isConfirmed) {
-        const res = await fetch('/api/mesero/salon', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mesaId: mesa.id, usuarioId: usuario.id, nombreMesero: usuario.nombreCompleto })
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          router.push(`/mesero/pedido/${data.pedido.id}`);
-        }
-      }
-    } 
-    // NUEVA LÓGICA: BLOQUEO POR RESERVA
-    else if (mesa.estado === 'Reservada') {
-      return Swal.fire({
-        title: 'Mesa Reservada',
-        html: `Esta mesa tiene una reserva programada.<br><br><b>Por seguridad, solo el Administrador puede habilitarla cuando llegue el cliente.</b>`,
-        icon: 'info',
-        confirmButtonColor: '#d97706',
-        allowEscapeKey: false,
-        allowOutsideClick: false
-      });
-    }
-    else if (mesa.estado === 'Ocupada') {
-      Swal.fire({ title: 'Cargando mesa...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+      if (!res.ok) throw new Error();
 
-      const res = await fetch(`/api/mesero/pedido/activo?mesaId=${mesa.id}`);
       const data = await res.json();
-      Swal.close();
+      setOpenTarget(null);
+      router.push(`/mesero/pedido/${data.pedido.id}`);
+    } catch {
+      toastError("No se pudo abrir la mesa", "Intenta nuevamente en unos segundos.");
+    } finally {
+      setOpening(false);
+    }
+  };
 
-      if (data.pedidoId) {
-        if (data.usuarioId !== usuario.id) {
-          const nombreDelResponsable = data.nombreMesero || 'Otro mesero';
-          return Swal.fire({
-            title: 'Mesa Restringida',
-            html: `Atendida por: <b class="text-blue-600">${nombreDelResponsable}</b>.<br><small>Solo el mesero responsable puede gestionarla.</small>`,
-            icon: 'warning',
-            confirmButtonColor: '#64748b',
-            allowEscapeKey: false,
-            allowOutsideClick: false
-          });
+  const handleInteraccionMesa = async (mesa: any) => {
+    if (mesa.estado === "Libre") {
+      setOpenTarget(mesa);
+      return;
+    }
+
+    if (mesa.estado === "Reservada") {
+      toastInfo(
+        "Mesa reservada",
+        "Tiene una reserva programada. Solo el administrador puede habilitarla cuando llegue el cliente."
+      );
+      return;
+    }
+
+    if (mesa.estado === "Ocupada") {
+      setCheckingId(mesa.id);
+      try {
+        const res = await fetch(`/api/mesero/pedido/activo?mesaId=${mesa.id}`);
+        const data = await res.json();
+
+        if (data.pedidoId) {
+          if (data.usuarioId !== usuario.id) {
+            toastWarning(
+              "Mesa restringida",
+              `Atendida por ${data.nombreMesero || "otro mesero"}. Solo el responsable puede gestionarla.`
+            );
+            return;
+          }
+          router.push(`/mesero/pedido/resumen/${data.pedidoId}`);
         }
-        router.push(`/mesero/pedido/resumen/${data.pedidoId}`);
+      } catch {
+        toastError("No se pudo cargar la mesa", "Intenta nuevamente en unos segundos.");
+      } finally {
+        setCheckingId(null);
       }
     }
   };
@@ -116,49 +123,65 @@ export default function SalonMeseroPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {mesas.map((mesa) => (
-            <div 
+            <button
               key={mesa.id}
+              type="button"
+              disabled={checkingId === mesa.id}
               onClick={() => handleInteraccionMesa(mesa)}
-              className={`cursor-pointer rounded-2xl p-5 border-2 transition-all transform hover:scale-105 ${getEstiloMesa(mesa.estado)}`}
+              aria-label={`Mesa ${mesa.numero}, estado ${mesa.estado}`}
+              className={`relative rounded-2xl border-2 p-5 text-left transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-70 ${getEstiloMesa(mesa.estado)}`}
             >
-              <div className="flex justify-between items-start mb-4">
-                {/* Cambiamos icono si es reservada */}
+              {checkingId === mesa.id && (
+                <span className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60">
+                  <Loader2 className="animate-spin text-blue-600" size={24} />
+                </span>
+              )}
+              <div className="mb-4 flex items-start justify-between">
                 {mesa.estado === 'Reservada' ? (
                   <CalendarCheck className="text-amber-500" size={32} />
                 ) : (
                   <LayoutGrid className={mesa.estado === 'Libre' ? 'text-emerald-500' : 'text-rose-500'} size={32} />
                 )}
                 
-                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${getBadgeEstilo(mesa.estado)}`}>
+                <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${getBadgeEstilo(mesa.estado)}`}>
                   {mesa.estado}
                 </span>
               </div>
               
               <h3 className="text-lg font-bold text-slate-800">{mesa.numero}</h3>
-              <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                <Users size={12} /> Capacidad: {mesa.capacidad}
+              <p className="mt-1 flex items-center gap-1 text-sm text-slate-600">
+                <Users size={14} /> Capacidad: {mesa.capacidad}
               </p>
 
-              {/* Mostrar quién atiende si está ocupada */}
               {mesa.estado === 'Ocupada' && (
-                <div className="mt-3 pt-3 border-t border-rose-100 flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-tight">
-                  <div className="bg-rose-200 p-1 rounded-full">
-                      <Users size={10} />
+                <div className="mt-3 flex items-center gap-2 border-t border-rose-100 pt-3 text-xs font-bold uppercase text-rose-700">
+                  <div className="rounded-full bg-rose-200 p-1">
+                    <Users size={12} />
                   </div>
                   <span className="truncate">Atiende: {mesa.meseroNombre || 'Asignado'}</span>
                 </div>
               )}
 
-              {/* Mensaje visual para Reservada */}
               {mesa.estado === 'Reservada' && (
-                <div className="mt-3 pt-3 border-t border-amber-200 text-[10px] font-bold text-amber-600 uppercase italic">
+                <div className="mt-3 border-t border-amber-200 pt-3 text-xs font-bold uppercase italic text-amber-700">
                   Bloqueada por reserva
                 </div>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(openTarget)}
+        onClose={() => setOpenTarget(null)}
+        onConfirm={abrirMesa}
+        title={openTarget ? `¿Abrir ${openTarget.numero}?` : "Abrir mesa"}
+        description="Se iniciará un nuevo pedido para esta mesa."
+        confirmLabel="Sí, abrir mesa"
+        variant="success"
+        loading={opening}
+      />
     </div>
   );
 }

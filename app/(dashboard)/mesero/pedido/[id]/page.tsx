@@ -5,14 +5,15 @@ import {
   ShoppingCart, Plus, Minus, ChevronLeft, 
   Loader2, Save, UtensilsCrossed, X 
 } from 'lucide-react';
-import Swal from 'sweetalert2';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { toastSuccess, toastError, toastWarning } from '@/components/ui/Toast';
 
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
 
   if (!src || failed) {
     return (
-      <div className="h-full w-full rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+      <div className="h-full w-full rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
         <UtensilsCrossed size={28} />
       </div>
     );
@@ -37,6 +38,11 @@ export default function TomaPedidoPage() {
   const [loading, setLoading] = useState(true);
   const [yaTeniaItems, setYaTeniaItems] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,50 +69,29 @@ export default function TomaPedidoPage() {
     fetchData();
   }, [params.id]);
 
-  const handleBack = async () => {
-    // --- CASO A: EL PEDIDO YA ES REAL (Tiene items en DB) ---
+  const handleBack = () => {
+    // Pedido con items en DB: si hay carrito pendiente, confirmar descarte.
     if (yaTeniaItems) {
-      if (carrito.length > 0) {
-        // Si el mesero añadió cosas nuevas al carrito pero no las envió
-        const result = await Swal.fire({
-          title: '¿Descartar cambios?',
-          text: "Los nuevos platos en el carrito no se guardarán.",
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: 'Sí, salir',
-          cancelButtonText: 'Seguir pidiendo',
-          confirmButtonColor: '#ef4444',
-        });
-        if (result.isConfirmed) router.back();
-      } else {
-        // Si no hay nada nuevo en el carrito, simplemente regresa (a Mis Pedidos o Resumen)
-        router.back();
-      }
-      return; // Finalizamos aquí para que no ejecute la lógica de liberación
+      if (carrito.length > 0) setDiscardOpen(true);
+      else router.back();
+      return;
     }
+    // Pedido vacío en DB: ofrecer liberar la mesa para no dejar pedidos fantasma.
+    setCancelOpen(true);
+  };
 
-    // --- CASO B: EL PEDIDO ESTÁ VACÍO EN DB (Mesa recién abierta o con carrito pendiente) ---
-    // No importa si el carrito tiene 0 o 10 platos, si NO se han enviado a cocina, 
-    // salir debe dar la opción de LIBERAR la mesa para no dejar "pedidos fantasma".
-    
-    const result = await Swal.fire({
-      title: '¿Anular apertura?',
-      text: "No has enviado nada a cocina. ¿Deseas liberar la mesa y cancelar el pedido?",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, liberar mesa',
-      cancelButtonText: 'No, seguir pidiendo',
-      confirmButtonColor: '#64748b',
-      allowEscapeKey: false,
-      allowOutsideClick: false
-    });
-
-    if (result.isConfirmed) {
-      // Esto borra el registro de 'Pedidos' y pone la Mesa en 'Libre'
+  const cancelarApertura = async () => {
+    setCanceling(true);
+    try {
       const res = await fetch(`/api/mesero/pedido/cancelar?id=${params.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        router.push('/mesero/salon');
-      }
+      if (!res.ok) throw new Error();
+      setCancelOpen(false);
+      toastSuccess('Mesa liberada', 'La apertura del pedido fue anulada.');
+      router.push('/mesero/salon');
+    } catch {
+      toastError('No se pudo liberar la mesa', 'Intenta nuevamente en unos segundos.');
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -131,48 +116,32 @@ export default function TomaPedidoPage() {
   const total = carrito.reduce((acc, item) => acc + (Number(item.precio) * item.cantidad), 0);
   const totalItems = carrito.reduce((acc, item) => acc + item.cantidad, 0);
 
-  const guardarComanda = async () => {
+  const requestSend = () => {
     if (carrito.length === 0) {
-      return Swal.fire({
-        title: 'Carrito vacío',
-        text: 'Debes seleccionar al menos un producto.',
-        icon: 'warning',
-        confirmButtonColor: '#2563eb',
-        allowEscapeKey: false,
-        allowOutsideClick: false
-      });
+      toastWarning('Carrito vacío', 'Debes seleccionar al menos un producto.');
+      return;
     }
+    setSendOpen(true);
+  };
 
-    const confirm = await Swal.fire({
-      title: '¿Enviar Comanda?',
-      text: `Se registrarán ${carrito.length} tipos de platos en el pedido.`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, enviar a cocina',
-      confirmButtonColor: '#2563eb',
-      cancelButtonText: 'Revisar',
-      allowEscapeKey: false,
-      allowOutsideClick: false
-    });
-
-    if (confirm.isConfirmed) {
-      Swal.fire({ title: 'Procesando...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
-
+  const guardarComanda = async () => {
+    setSending(true);
+    try {
       const res = await fetch('/api/mesero/pedido/detalle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pedidoId: params.id,
-          items: carrito
-        })
+        body: JSON.stringify({ pedidoId: params.id, items: carrito }),
       });
 
-      if (res.ok) {
-        Swal.fire({title: '¡Enviado!', text: 'La comanda ha sido procesada correctamente.', icon: 'success', allowEscapeKey: false, allowOutsideClick: false});
-        router.push('/mesero/salon');
-      } else {
-        Swal.fire('Error', 'No se pudo registrar la comanda.', 'error');
-      }
+      if (!res.ok) throw new Error();
+
+      setSendOpen(false);
+      toastSuccess('Comanda enviada', 'La comanda fue procesada correctamente.');
+      router.push('/mesero/salon');
+    } catch {
+      toastError('No se pudo registrar la comanda', 'Intenta nuevamente en unos segundos.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -191,7 +160,7 @@ export default function TomaPedidoPage() {
   };
 
   if (loading) return (
-    <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2">
       <Loader2 className="animate-spin" size={40} />
       <p>Cargando carta digital...</p>
     </div>
@@ -204,8 +173,10 @@ export default function TomaPedidoPage() {
       <div className="flex-1 overflow-y-auto p-4 pb-28 sm:p-6 lg:pb-6">
         <div className="flex items-center gap-4 mb-8">
            <button 
+             type="button"
              onClick={handleBack} 
-             className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-100 transition-colors"
+             aria-label="Volver al salón"
+             className="rounded-full bg-white p-2 shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
            >
              <ChevronLeft size={24} className="text-slate-600" />
            </button>
@@ -231,7 +202,7 @@ export default function TomaPedidoPage() {
                   <h2 className="text-xl font-black text-slate-700 uppercase tracking-widest">
                     {cat.nombre}
                   </h2>
-                  <span className="text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
                     {getLabelCategoria(cat.nombre, productosDeCategoria.length)}
                   </span>
                 </div>
@@ -251,7 +222,7 @@ export default function TomaPedidoPage() {
                         <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">
                           {prod.nombre}
                         </h3>
-                        <p className="text-xs text-slate-400 mb-2 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-slate-600 mb-2 line-clamp-2 leading-relaxed">
                           {prod.descripcion || 'Sin descripción disponible.'}
                         </p>
                         <div className="flex justify-between items-center">
@@ -281,7 +252,7 @@ export default function TomaPedidoPage() {
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
           {carrito.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-40">
+            <div className="flex flex-col items-center justify-center h-full text-slate-600 opacity-40">
               <Plus size={48} className="mb-2" />
               <p className="text-center text-sm font-medium">Selecciona platos de la carta para empezar</p>
             </div>
@@ -294,15 +265,19 @@ export default function TomaPedidoPage() {
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   <button 
+                    type="button"
+                    aria-label={`Quitar uno de ${item.nombre}`}
                     onClick={(e) => { e.stopPropagation(); quitarDelCarrito(item.id); }} 
-                    className="p-1.5 bg-white border rounded-lg text-slate-400 hover:text-red-500 hover:border-red-200 transition-all shadow-sm"
+                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-red-200 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                   >
                     <Minus size={14}/>
                   </button>
-                  <span className="font-bold text-slate-700 w-6 text-center">{item.cantidad}</span>
+                  <span className="w-6 text-center font-bold text-slate-700">{item.cantidad}</span>
                   <button 
+                    type="button"
+                    aria-label={`Agregar uno de ${item.nombre}`}
                     onClick={(e) => { e.stopPropagation(); agregarAlCarrito(item); }} 
-                    className="p-1.5 bg-white border rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
+                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   >
                     <Plus size={14}/>
                   </button>
@@ -315,15 +290,15 @@ export default function TomaPedidoPage() {
         {/* Footer del Carrito */}
         <div className="border-t border-slate-100 pt-6 mt-6">
           <div className="flex justify-between items-end mb-6">
-            <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Total Pedido</span>
+            <span className="text-slate-600 font-bold uppercase text-xs tracking-widest">Total Pedido</span>
             <span className="text-3xl font-black text-slate-800">S/ {total.toFixed(2)}</span>
           </div>
           <button 
-            onClick={guardarComanda}
+            onClick={requestSend}
             disabled={carrito.length === 0}
             className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all ${
               carrito.length === 0 
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' 
+              ? 'bg-slate-100 text-slate-600 cursor-not-allowed shadow-none' 
               : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100 active:scale-95'
             }`}
           >
@@ -374,7 +349,7 @@ export default function TomaPedidoPage() {
             type="button"
             onClick={() => setCartOpen(false)}
             aria-label="Cerrar comanda"
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100"
+            className="rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-slate-100"
           >
             <X size={20} />
           </button>
@@ -382,7 +357,7 @@ export default function TomaPedidoPage() {
 
         <div className="flex-1 space-y-3 overflow-y-auto pr-1">
           {carrito.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-400 opacity-60">
+            <div className="flex flex-col items-center justify-center py-10 text-slate-600 opacity-60">
               <Plus size={40} className="mb-2" />
               <p className="text-center text-sm font-medium">Selecciona platos de la carta para empezar</p>
             </div>
@@ -398,7 +373,7 @@ export default function TomaPedidoPage() {
                     type="button"
                     aria-label={`Quitar uno de ${item.nombre}`}
                     onClick={() => quitarDelCarrito(item.id)}
-                    className="rounded-lg border bg-white p-1.5 text-slate-400 shadow-sm transition-all hover:border-red-200 hover:text-red-500"
+                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-red-200 hover:text-red-500"
                   >
                     <Minus size={14} />
                   </button>
@@ -407,7 +382,7 @@ export default function TomaPedidoPage() {
                     type="button"
                     aria-label={`Agregar uno de ${item.nombre}`}
                     onClick={() => agregarAlCarrito(item)}
-                    className="rounded-lg border bg-white p-1.5 text-slate-400 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
+                    className="rounded-lg border bg-white p-1.5 text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
                   >
                     <Plus size={14} />
                   </button>
@@ -419,16 +394,16 @@ export default function TomaPedidoPage() {
 
         <div className="mt-4 border-t border-slate-100 pt-4">
           <div className="mb-4 flex items-end justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Pedido</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-600">Total Pedido</span>
             <span className="text-3xl font-black text-slate-800">S/ {total.toFixed(2)}</span>
           </div>
           <button
             type="button"
-            onClick={guardarComanda}
+            onClick={requestSend}
             disabled={carrito.length === 0}
             className={`flex w-full items-center justify-center gap-3 rounded-2xl py-4 font-bold shadow-lg transition-all ${
               carrito.length === 0
-                ? "cursor-not-allowed bg-slate-100 text-slate-400 shadow-none"
+                ? "cursor-not-allowed bg-slate-100 text-slate-600 shadow-none"
                 : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
             }`}
           >
@@ -436,6 +411,44 @@ export default function TomaPedidoPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={discardOpen}
+        onClose={() => setDiscardOpen(false)}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          router.back();
+        }}
+        title="¿Descartar cambios?"
+        description="Los nuevos platos en el carrito no se guardarán."
+        confirmLabel="Sí, salir"
+        cancelLabel="Seguir pidiendo"
+        variant="warning"
+      />
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={cancelarApertura}
+        title="¿Anular apertura?"
+        description="No has enviado nada a cocina. ¿Deseas liberar la mesa y cancelar el pedido?"
+        confirmLabel="Sí, liberar mesa"
+        cancelLabel="No, seguir pidiendo"
+        variant="danger"
+        loading={canceling}
+      />
+
+      <ConfirmDialog
+        open={sendOpen}
+        onClose={() => setSendOpen(false)}
+        onConfirm={guardarComanda}
+        title="¿Enviar comanda?"
+        description={`Se registrarán ${carrito.length} tipos de platos en el pedido.`}
+        confirmLabel="Sí, enviar a cocina"
+        cancelLabel="Revisar"
+        variant="default"
+        loading={sending}
+      />
     </div>
   );
 }

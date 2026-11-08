@@ -1,8 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import Swal from "sweetalert2";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -73,6 +73,7 @@ import {
 import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { SasiMenuObject, SasiSistema } from "@/lib/types";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -152,6 +153,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const sistemas = (user?.sistemas as SasiSistema[] | undefined) ?? [];
   const sistemaRestaurante = sistemas.find((s) => s.id === 13);
@@ -170,24 +172,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   };
 
   const handleLogout = () => {
-    Swal.fire({
-      title: "¿Cerrar sesión?",
-      text: "Tendrás que ingresar tus credenciales nuevamente.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#2563eb",
-      cancelButtonColor: "#64748b",
-      confirmButtonText: "Sí, salir",
-      cancelButtonText: "Cancelar",
-      allowEscapeKey: false,
-      allowOutsideClick: false,
-    }).then((result) => {
-      if (result.isConfirmed) {
-        logout();
-        onClose();
-        router.replace("/login");
-      }
-    });
+    setLogoutOpen(true);
+  };
+
+  const confirmLogout = () => {
+    setLogoutOpen(false);
+    logout();
+    onClose();
+    router.replace("/login");
   };
 
   return (
@@ -216,7 +208,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <p className="break-words text-sm font-medium leading-tight text-slate-200">
                 {user?.nombreCompleto}
               </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-blue-500">
+              <p className="mt-1 text-xs font-bold uppercase tracking-wider text-blue-500">
                 {rolActivo?.nombreRol || "Usuario"}
               </p>
             </div>
@@ -311,6 +303,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
       </aside>
+
+      <ConfirmDialog
+        open={logoutOpen}
+        onClose={() => setLogoutOpen(false)}
+        onConfirm={confirmLogout}
+        title="¿Cerrar sesión?"
+        description="Tendrás que ingresar tus credenciales nuevamente."
+        confirmLabel="Sí, salir"
+        variant="danger"
+      />
     </>
   );
 }

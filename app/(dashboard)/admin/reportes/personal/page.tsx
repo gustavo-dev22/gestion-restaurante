@@ -29,7 +29,7 @@ export default function DesempenoPersonalPage() {
     fetchRanking();
   }, []);
 
-  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Cargando desempeño...</span></div>;
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-600">Cargando desempeño...</span></div>;
 
   if (error) {
     return (
@@ -41,7 +41,7 @@ export default function DesempenoPersonalPage() {
     );
   }
 
-  if (ranking.length === 0) return <div className="p-10 text-center font-bold text-slate-400">Sin datos de ventas aún...</div>;
+  if (ranking.length === 0) return <div className="p-10 text-center font-bold text-slate-600">Sin datos de ventas aún...</div>;
 
   return (
     <div className="p-8">
@@ -58,12 +58,12 @@ export default function DesempenoPersonalPage() {
                     <Medal size={48} className="text-amber-500" />
                 </div>
                 <div>
-                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Mejor Vendedor del Mes</span>
+                    <span className="text-xs font-black text-amber-500 uppercase tracking-[0.2em]">Mejor Vendedor del Mes</span>
                     <h2 className="text-4xl font-black text-slate-800 italic">{ranking[0].mesero}</h2>
                 </div>
             </div>
             <div className="mt-6 md:mt-0 text-right">
-                <p className="text-sm font-bold text-slate-400 uppercase">Venta Acumulada</p>
+                <p className="text-sm font-bold text-slate-600 uppercase">Venta Acumulada</p>
                 <p className="text-5xl font-black text-slate-900">S/ {Number(ranking[0].total).toFixed(2)}</p>
             </div>
         </div>
@@ -79,7 +79,7 @@ export default function DesempenoPersonalPage() {
             </div>
             <DataTable>
                 <thead className="bg-slate-50">
-                    <tr className="text-[10px] uppercase font-black text-slate-400">
+                    <tr className="text-xs uppercase font-black text-slate-600">
                         <th className="p-6">Pos.</th>
                         <th className="p-6">Mesero</th>
                         <th className="p-6 text-center">Pedidos</th>
@@ -89,7 +89,7 @@ export default function DesempenoPersonalPage() {
                 <tbody className="divide-y divide-slate-50">
                     {ranking.map((m, idx) => (
                         <tr key={m.id} className="hover:bg-slate-50 transition-colors group">
-                            <td className="p-6 font-black text-slate-300 group-hover:text-blue-600 text-xl italic">#{idx + 1}</td>
+                            <td className="p-6 font-black text-slate-500 group-hover:text-blue-600 text-xl italic">#{idx + 1}</td>
                             <td className="p-6 font-bold text-slate-700">{m.mesero}</td>
                             <td className="p-6 text-center font-bold text-slate-500">{m.pedidos}</td>
                             <td className="p-6 text-right font-black text-slate-800">S/ {Number(m.total).toFixed(2)}</td>
@@ -107,11 +107,11 @@ export default function DesempenoPersonalPage() {
                     <div className="flex items-center gap-4">
                         <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl"><TrendingUp size={20}/></div>
                         <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase">{m.mesero}</p>
+                            <p className="text-xs font-bold text-slate-600 uppercase">{m.mesero}</p>
                             <p className="font-black text-slate-800 italic">S/ {m.ticketPromedio}</p>
                         </div>
                     </div>
-                    <div className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter text-right">
+                    <div className="text-xs font-bold text-slate-600 uppercase tracking-tighter text-right">
                         Promedio<br/>por mesa
                     </div>
                 </div>

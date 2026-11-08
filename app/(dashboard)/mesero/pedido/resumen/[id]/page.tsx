@@ -1,162 +1,240 @@
-// app/(dashboard)/mesero/pedido/resumen/[id]/page.tsx
-'use client';
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, Receipt } from 'lucide-react';
-import Swal from 'sweetalert2';
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ChevronLeft, Plus, Receipt, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { IconButton } from "@/components/ui/IconButton";
+import { Label } from "@/components/ui/Field";
+import { selectBase } from "@/components/ui/Input";
+import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { toastSuccess, toastError, toastWarning } from "@/components/ui/Toast";
 
 export default function ResumenPedido() {
   const params = useParams();
   const router = useRouter();
   const [pedido, setPedido] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/mesero/pedido/resumen?id=${params.id}`)
-      .then(res => res.json())
-      .then(data => setPedido(data));
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [metodo, setMetodo] = useState("");
+  const [metodoError, setMetodoError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+
+  const fetchPedido = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch(`/api/mesero/pedido/resumen?id=${params.id}`);
+      const data = await res.json();
+      if (!data?.mesa) throw new Error();
+      setPedido(data);
+    } catch {
+      setError(true);
+      setPedido(null);
+    } finally {
+      setLoading(false);
+    }
   }, [params.id]);
 
-  const handleCancelarApertura = async () => {
-    const result = await Swal.fire({
-      title: '¿Anular apertura?',
-      text: "La mesa volverá a estar disponible.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, liberar mesa',
-      confirmButtonColor: '#64748b',
-      allowEscapeKey: false,
-      allowOutsideClick: false
-    });
+  useEffect(() => {
+    fetchPedido();
+  }, [fetchPedido]);
 
-    if (result.isConfirmed) {
-      const res = await fetch(`/api/mesero/pedido/cancelar?id=${params.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        router.push('/mesero/salon');
-      } else {
-        Swal.fire('Error', 'No se puede cancelar si ya hay platos enviados.', 'error');
-      }
+  const handleCancelarApertura = async () => {
+    setCanceling(true);
+    try {
+      const res = await fetch(`/api/mesero/pedido/cancelar?id=${params.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setCancelOpen(false);
+      toastSuccess("Mesa liberada", "La apertura del pedido fue anulada.");
+      router.push("/mesero/salon");
+    } catch {
+      toastError("No se pudo cancelar", "No se puede cancelar si ya hay platos enviados.");
+    } finally {
+      setCanceling(false);
     }
   };
 
-  const handlePagarCuenta = async () => {
-    // 1. Selección del método de pago
-    const { value: metodo } = await Swal.fire({
-      title: 'Finalizar Pedido',
-      text: `Total a cobrar: S/ ${Number(pedido.total).toFixed(2)}`,
-      icon: 'info',
-      input: 'select',
-      inputOptions: {
-        'Efectivo': 'Efectivo',
-        'Tarjeta': 'Tarjeta / POS',
-        'Yape/Plin': 'Yape / Plin'
-      },
-      inputPlaceholder: 'Selecciona método de pago',
-      showCancelButton: true,
-      confirmButtonText: 'Confirmar Pago',
-      confirmButtonColor: '#10b981',
-      cancelButtonText: 'Cancelar',
-      allowEscapeKey: false,
-      allowOutsideClick: false,
-      inputValidator: (value) => {
-        if (!value) return 'Debes seleccionar un método';
-      }
-    });
+  const abrirPago = () => {
+    setMetodo("");
+    setMetodoError(null);
+    setPayOpen(true);
+  };
 
-    if (metodo) {
-      Swal.fire({ title: 'Procesando pago...', didOpen: () => Swal.showLoading() });
+  const confirmarPago = async () => {
+    if (!metodo) {
+      setMetodoError("Debes seleccionar un método de pago.");
+      return;
+    }
 
-      const res = await fetch('/api/mesero/pedido/pagar', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pedidoId: params.id,
-          metodoPago: metodo
-        })
+    setPaying(true);
+    try {
+      const res = await fetch("/api/mesero/pedido/pagar", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId: params.id, metodoPago: metodo }),
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        await Swal.fire({
-          title: '¡Venta Exitosa!',
-          text: 'La mesa ha sido liberada.',
-          icon: 'success',
-          timer: 2000,
-          showConfirmButton: false
-        });
-        router.push('/mesero/salon'); // Regresamos al salón de mesas verdes
-      } else {
-        if (data.error === 'COCINA_PENDIENTE') {
-          Swal.fire({
-            title: '¡Espera!',
-            text: data.message,
-            icon: 'warning',
-            confirmButtonColor: '#f59e0b',
-            confirmButtonText: 'Entendido',
-            allowEscapeKey: false,
-            allowOutsideClick: false
-          });
+      if (!res.ok) {
+        if (data.error === "COCINA_PENDIENTE") {
+          toastWarning("Espera un momento", data.message);
         } else {
-          Swal.fire('Error', 'No se pudo procesar el pago.', 'error');
+          toastError("No se pudo procesar el pago", "Intenta nuevamente en unos segundos.");
         }
+        return;
       }
+
+      setPayOpen(false);
+      toastSuccess("Venta exitosa", "La mesa ha sido liberada.");
+      router.push("/mesero/salon");
+    } catch {
+      toastError("No se pudo procesar el pago", "Intenta nuevamente en unos segundos.");
+    } finally {
+      setPaying(false);
     }
   };
 
-  if (!pedido) return <p>Cargando...</p>;
+  if (loading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-slate-500">
+        <Loader2 className="animate-spin text-blue-600" size={40} />
+      </div>
+    );
+  }
+
+  if (error || !pedido) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-lg font-bold text-slate-800">No se pudo cargar el pedido</p>
+        <p className="text-slate-600">Revisa la conexión e inténtalo nuevamente.</p>
+        <Button onClick={fetchPedido}>Reintentar</Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.push('/mesero/salon')} className="p-2 bg-white rounded-full shadow-sm"><ChevronLeft/></button>
-        <h1 className="text-2xl font-bold">Resumen {pedido.mesa.numero}</h1>
+    <div className="mx-auto max-w-2xl p-4 sm:p-6">
+      <div className="mb-8 flex items-center gap-4">
+        <IconButton label="Volver al salón" variant="outline" onClick={() => router.push("/mesero/salon")}>
+          <ChevronLeft size={20} />
+        </IconButton>
+        <h1 className="text-2xl font-bold text-slate-800">Resumen {pedido.mesa.numero}</h1>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border p-6 mb-6">
-        <h2 className="text-sm font-bold text-slate-400 uppercase mb-4 tracking-widest">Consumo Actual</h2>
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-600">Consumo actual</h2>
         <div className="space-y-4">
           {pedido.detalles.map((det: any) => (
-            <div key={det.id} className="flex justify-between items-center">
-              <div>
-                <div className="flex items-center gap-2">
+            <div key={det.id} className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="font-bold text-slate-800">{det.producto.nombre}</p>
-                  {/* Badge de estado del plato */}
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                    det.estado === 'Listo' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
-                  }`}>
-                    {det.estado}
-                  </span>
+                  <Badge tone={det.estado === "Listo" ? "emerald" : "amber"}>{det.estado}</Badge>
                 </div>
-                <p className="text-xs text-slate-500">{det.cantidad} x S/ {Number(det.precio_unitario).toFixed(2)}</p>
+                <p className="text-sm text-slate-600">
+                  {det.cantidad} x S/ {Number(det.precio_unitario).toFixed(2)}
+                </p>
               </div>
-              <span className="font-bold text-slate-700">S/ {Number(det.precio_unitario * det.cantidad).toFixed(2)}</span>
+              <span className="shrink-0 font-bold text-slate-700">
+                S/ {(Number(det.precio_unitario) * det.cantidad).toFixed(2)}
+              </span>
             </div>
           ))}
         </div>
-        
-        <div className="border-t mt-6 pt-6 flex justify-between items-end">
-          <span className="text-slate-500 font-medium">Total a Pagar</span>
-          <span className="text-3xl font-black text-blue-600">S/ {Number(pedido.total).toFixed(2)}</span>
+
+        <div className="mt-6 flex items-end justify-between border-t border-slate-200 pt-6">
+          <span className="font-medium text-slate-600">Total a pagar</span>
+          <span className="text-3xl font-black text-blue-700">S/ {Number(pedido.total).toFixed(2)}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-          {pedido.detalles.length === 0 && (
-            <button 
-              onClick={handleCancelarApertura}
-              className="w-full mt-4 text-slate-400 text-sm hover:text-red-500 transition-colors underline">
-              Anular apertura de mesa
-            </button>
-          )}
-         <button 
-           onClick={() => router.push(`/mesero/pedido/${params.id}`)}
-           className="flex items-center justify-center gap-2 bg-slate-800 text-white p-4 rounded-2xl font-bold">
-           <Plus size={20}/> Agregar más
-         </button>
-         <button onClick={handlePagarCuenta} className="flex items-center justify-center gap-2 bg-emerald-600 text-white p-4 rounded-2xl font-bold">
-           <Receipt size={20}/> Pagar Cuenta
-         </button>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          className="flex-1"
+          onClick={() => router.push(`/mesero/pedido/${params.id}`)}
+        >
+          <Plus size={20} /> Agregar más
+        </Button>
+        <Button type="button" variant="success" size="lg" className="flex-1" onClick={abrirPago}>
+          <Receipt size={20} /> Pagar cuenta
+        </Button>
       </div>
+
+      {pedido.detalles.length === 0 && (
+        <button
+          type="button"
+          onClick={() => setCancelOpen(true)}
+          className="mt-6 text-sm font-medium text-slate-600 underline transition-colors hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+        >
+          Anular apertura de mesa
+        </button>
+      )}
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={handleCancelarApertura}
+        title="¿Anular apertura?"
+        description="La mesa volverá a estar disponible."
+        confirmLabel="Sí, liberar mesa"
+        variant="danger"
+        loading={canceling}
+      />
+
+      <Modal
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        title="Finalizar pedido"
+        description={`Total a cobrar: S/ ${Number(pedido.total).toFixed(2)}`}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setPayOpen(false)} disabled={paying}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="success" onClick={confirmarPago} loading={paying}>
+              Confirmar pago
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="metodo-pago" required>
+            Método de pago
+          </Label>
+          <select
+            id="metodo-pago"
+            value={metodo}
+            onChange={(event) => {
+              setMetodo(event.target.value);
+              if (metodoError) setMetodoError(null);
+            }}
+            className={selectBase}
+            aria-describedby={metodoError ? "metodo-pago-error" : undefined}
+            aria-required="true"
+          >
+            <option value="">Selecciona método de pago</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Tarjeta">Tarjeta / POS</option>
+            <option value="Yape/Plin">Yape / Plin</option>
+          </select>
+          {metodoError && (
+            <p id="metodo-pago-error" role="alert" className="mt-1.5 text-sm font-medium text-rose-600">
+              {metodoError}
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

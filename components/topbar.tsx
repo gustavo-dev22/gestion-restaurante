@@ -32,7 +32,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
 
       <div className="min-w-0 lg:hidden">
         <p className="truncate text-sm font-bold text-slate-800">Gestión Restaurante</p>
-        <p className="truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">
+        <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-600">
           {rolActivo?.nombreRol || "Usuario"}
         </p>
       </div>
@@ -40,7 +40,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
       <div className="ml-auto flex items-center gap-3">
         <div className="hidden text-right sm:block">
           <p className="max-w-[180px] truncate text-sm font-semibold text-slate-700">{nombre}</p>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
             {rolActivo?.nombreRol || "Usuario"}
           </p>
         </div>

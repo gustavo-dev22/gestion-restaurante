@@ -1,46 +1,50 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { User, Phone, Users, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import Swal from 'sweetalert2';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { toastSuccess, toastError } from '@/components/ui/Toast';
 
 export default function GestionReservasPage() {
   const [reservas, setReservas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState<{ id: number; mesaId: number; estado: string } | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const fetchReservas = async () => {
-    const res = await fetch('/api/admin/reservas');
-    const data = await res.json();
-    setReservas(data);
-    setLoading(false);
+    try {
+      const res = await fetch('/api/admin/reservas');
+      const data = await res.json();
+      setReservas(Array.isArray(data) ? data : []);
+    } catch {
+      setReservas([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchReservas(); }, []);
 
-  const cambiarEstado = async (id: number, mesaId: number, estado: string) => {
-    const confirm = await Swal.fire({
-      title: `¿Marcar como ${estado}?`,
-      text: "Esto actualizará la disponibilidad de la mesa en el salón.",
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#2563eb',
-      cancelButtonText: 'Cancelar',
-      allowEscapeKey: false,
-      allowOutsideClick: false
-    });
-
-    if (confirm.isConfirmed) {
+  const cambiarEstado = async () => {
+    if (!pending) return;
+    setUpdating(true);
+    try {
       const res = await fetch('/api/admin/reservas', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, nuevoEstado: estado, mesaId })
+        body: JSON.stringify({ id: pending.id, nuevoEstado: pending.estado, mesaId: pending.mesaId }),
       });
 
-      if (res.ok) {
-        Swal.fire({title: 'Actualizado', text: `Reserva marcada como ${estado}`, icon: 'success', allowEscapeKey: false, allowOutsideClick: false});
-        fetchReservas();
-      }
+      if (!res.ok) throw new Error();
+
+      toastSuccess('Reserva actualizada', `Reserva marcada como ${pending.estado}.`);
+      setPending(null);
+      fetchReservas();
+    } catch {
+      toastError('No se pudo actualizar', 'Intenta nuevamente en unos segundos.');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -55,7 +59,7 @@ export default function GestionReservasPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reservas.length === 0 ? (
-          <p className="text-slate-400 italic">No hay reservas registradas hoy.</p>
+          <p className="text-slate-600 italic">No hay reservas registradas hoy.</p>
         ) : (
           reservas.map((r) => (
             <div key={r.id} className={`bg-white border-2 rounded-3xl p-6 transition-all ${
@@ -80,16 +84,18 @@ export default function GestionReservasPage() {
               {r.estado === 'Confirmada' && (
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => cambiarEstado(r.id, r.mesaId, 'Finalizada')}
-                    className="flex-1 bg-emerald-500 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 hover:bg-emerald-600"
+                    type="button"
+                    onClick={() => setPending({ id: r.id, mesaId: r.mesaId, estado: 'Finalizada' })}
+                    className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1 hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                   >
-                    <CheckCircle size={14} /> LLEGÓ
+                    <CheckCircle size={14} /> Llegó
                   </button>
                   <button 
-                    onClick={() => cambiarEstado(r.id, r.mesaId, 'Cancelada')}
-                    className="flex-1 bg-rose-100 text-rose-600 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-200"
+                    type="button"
+                    onClick={() => setPending({ id: r.id, mesaId: r.mesaId, estado: 'Cancelada' })}
+                    className="flex-1 bg-rose-50 text-rose-700 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                   >
-                    <XCircle size={14} /> CANCELAR
+                    <XCircle size={14} /> Cancelar
                   </button>
                 </div>
               )}
@@ -97,6 +103,17 @@ export default function GestionReservasPage() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pending)}
+        onClose={() => setPending(null)}
+        onConfirm={cambiarEstado}
+        title={pending ? `¿Marcar como ${pending.estado}?` : "Actualizar reserva"}
+        description="Esto actualizará la disponibilidad de la mesa en el salón."
+        confirmLabel="Confirmar"
+        variant={pending?.estado === "Cancelada" ? "danger" : "success"}
+        loading={updating}
+      />
     </div>
   );
 }

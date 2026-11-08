@@ -123,7 +123,7 @@ export default function MisPedidosPage() {
                   <span className="text-xl font-black">{p.mesa.numero}</span>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-slate-600 text-xs font-bold uppercase tracking-wider">
                     <Clock size={12} /> {calcularTiempo(p.fecha_creacion)}
                   </div>
                   <p className="text-slate-500 text-sm">{p.detalles.length} platos en comanda</p>
@@ -132,7 +132,7 @@ export default function MisPedidosPage() {
 
               {/* Monto Acumulado */}
               <div className="text-center md:text-right mb-4 md:mb-0">
-                <p className="text-xs font-bold text-slate-400 uppercase">Total actual</p>
+                <p className="text-xs font-bold text-slate-600 uppercase">Total actual</p>
                 <p className="text-2xl font-black text-slate-800">S/ {Number(p.total).toFixed(2)}</p>
               </div>
 

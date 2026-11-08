@@ -48,9 +48,9 @@ export default function GenerarQRPage() {
         {mesas.map((mesa) => (
           <div key={mesa.id} className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-8 flex flex-col items-center text-center shadow-sm print:shadow-none print:border-slate-300">
             <div className="bg-slate-100 p-2 rounded-full mb-2">
-                <QrCode size={16} className="text-slate-400" />
+                <QrCode size={16} className="text-slate-600" />
             </div>
-            <span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] mb-1">Mesa Digital</span>
+            <span className="text-slate-600 font-black text-xs uppercase tracking-[0.2em] mb-1">Mesa Digital</span>
             <h2 className="text-4xl font-black text-slate-800 mb-6">{mesa.numero}</h2>
             
             <div className="bg-white p-4 rounded-3xl border-4 border-slate-50 mb-6 shadow-inner">
@@ -69,9 +69,9 @@ export default function GenerarQRPage() {
               )}
             </div>
             
-            <p className="text-[9px] text-slate-300 font-mono mb-4">ID_REF: {mesa.id}</p>
+            <p className="text-xs text-slate-600 font-mono mb-4">ID_REF: {mesa.id}</p>
             <div className="w-full pt-4 border-t border-dashed border-slate-100">
-                <p className="text-xs font-bold text-slate-400 italic">Escanea para ver la carta</p>
+                <p className="text-xs font-bold text-slate-600 italic">Escanea para ver la carta</p>
             </div>
           </div>
         ))}

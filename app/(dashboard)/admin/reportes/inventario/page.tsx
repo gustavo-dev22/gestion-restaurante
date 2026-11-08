@@ -32,7 +32,7 @@ export default function InventarioReportePage() {
     fetchData();
   }, []);
 
-  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-400">Escaneando almacén...</span></div>;
+  if (loading) return <div className="p-10 flex justify-center"><span className="animate-pulse font-bold text-slate-600">Escaneando almacén...</span></div>;
 
   if (error || !data) {
     return (
@@ -55,7 +55,7 @@ export default function InventarioReportePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <div className="bg-rose-50 border-2 border-rose-100 p-8 rounded-[2.5rem] flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Stock Crítico</p>
+            <p className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1">Stock Crítico</p>
             <h3 className="text-4xl font-black text-rose-600">{data.resumen.totalProductosCriticos} <span className="text-lg">Items</span></h3>
           </div>
           <AlertTriangle size={40} className="text-rose-300" />
@@ -63,7 +63,7 @@ export default function InventarioReportePage() {
 
         <div className="bg-white border-2 border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor en Bodega</p>
+            <p className="text-xs font-black text-slate-600 uppercase tracking-widest mb-1">Valor en Bodega</p>
             <h3 className="text-3xl font-black text-slate-800">S/ {data.resumen.valorizacionBodega}</h3>
           </div>
           <DollarSign size={40} className="text-slate-200" />
@@ -71,7 +71,7 @@ export default function InventarioReportePage() {
 
         <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Estado General</p>
+            <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Estado General</p>
             <h3 className="text-2xl font-black italic">
                 {data.resumen.totalProductosCriticos > 5 ? 'REABASTECER' : 'ÓPTIMO'}
             </h3>
@@ -89,7 +89,7 @@ export default function InventarioReportePage() {
         </div>
         <DataTable>
             <thead className="bg-white">
-                <tr className="text-[10px] uppercase font-black text-slate-400 border-b">
+                <tr className="text-xs uppercase font-black text-slate-600 border-b">
                     <th className="p-6">Producto</th>
                     <th className="p-6">Categoría</th>
                     <th className="p-6 text-center">Stock Actual</th>
@@ -101,7 +101,7 @@ export default function InventarioReportePage() {
                     <tr key={p.id} className="hover:bg-rose-50/30 transition-colors">
                         <td className="p-6">
                             <p className="font-bold text-slate-700">{p.nombre}</p>
-                            <p className="text-[10px] text-slate-400 font-mono italic">ID: {p.id}</p>
+                            <p className="text-xs text-slate-600 font-mono italic">ID: {p.id}</p>
                         </td>
                         <td className="p-6">
                             <span className="text-xs bg-slate-100 px-3 py-1 rounded-full text-slate-500 font-bold">
@@ -118,7 +118,7 @@ export default function InventarioReportePage() {
                                     style={{ width: `${(p.stock / 10) * 100}%` }}
                                 ></div>
                             </div>
-                            <p className="text-[9px] font-bold text-rose-400 mt-1 uppercase">Crítico: Menos de 10 unidades</p>
+                            <p className="text-xs font-bold text-rose-400 mt-1 uppercase">Crítico: Menos de 10 unidades</p>
                         </td>
                     </tr>
                 ))}
