@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Swal from 'sweetalert2';
 import { useAuthStore } from '@/lib/store';
 import NotificacionesMesero from '@/components/mesero/notificacionesMesero';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function SalonMeseroPage() {
   const [mesas, setMesas] = useState<any[]>([]);
@@ -105,8 +106,10 @@ export default function SalonMeseroPage() {
   return (
     <div className="p-6">
       <NotificacionesMesero onPedidoAceptado={fetchMesas} />
-      <h1 className="text-2xl font-bold text-slate-800 mb-2">Salón Interactivo</h1>
-      <p className="text-slate-500 mb-8">Selecciona una mesa para gestionar el servicio</p>
+      <PageHeader
+        title="Salón Interactivo"
+        description="Selecciona una mesa para gestionar el servicio"
+      />
 
       {loading ? (
         <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />

@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Package, Check, X, Search, Loader2 } from 'lucide-react';
+import { Package, Search, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Input } from '@/components/ui/Input';
 
 export default function InventarioRapidoPage() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -44,7 +46,7 @@ export default function InventarioRapidoPage() {
         icon: 'success',
         title: `${nombre} ahora está ${nuevoEstado ? 'Disponible' : 'AGOTADO'}`
       });
-    } catch (err) {
+    } catch {
       // Si falla, revertimos el cambio en la UI
       setProductos(prev => prev.map(p => p.id === id ? { ...p, activo: estadoActual } : p));
       Swal.fire('Error', 'No se pudo actualizar el estado', 'error');
@@ -60,18 +62,18 @@ export default function InventarioRapidoPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Inventario de Producción</h1>
-        <p className="text-slate-500">Gestiona la disponibilidad de platos y bebidas para el salón</p>
-      </div>
+      <PageHeader
+        title="Inventario de Producción"
+        description="Gestiona la disponibilidad de platos y bebidas para el salón"
+      />
 
       {/* Buscador Rápido */}
       <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-3 text-slate-400" size={20} />
-        <input 
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <Input
           type="text"
           placeholder="Buscar plato o categoría..."
-          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500"
+          className="pl-10"
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
         />

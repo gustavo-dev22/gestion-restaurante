@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Calendar, User, Phone, Users, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { User, Phone, Users, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Badge } from '@/components/ui/Badge';
 
 export default function GestionReservasPage() {
   const [reservas, setReservas] = useState<any[]>([]);
@@ -46,10 +48,10 @@ export default function GestionReservasPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Control de Reservas</h1>
-        <p className="text-slate-500">Administra las llegadas y disponibilidad de mesas reservadas</p>
-      </div>
+      <PageHeader
+        title="Control de Reservas"
+        description="Administra las llegadas y disponibilidad de mesas reservadas"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reservas.length === 0 ? (
@@ -63,12 +65,9 @@ export default function GestionReservasPage() {
                 <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
                   <User size={24} />
                 </div>
-                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase ${
-                  r.estado === 'Confirmada' ? 'bg-amber-100 text-amber-700' : 
-                  r.estado === 'Finalizada' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                }`}>
+                <Badge tone={r.estado === 'Confirmada' ? 'amber' : r.estado === 'Finalizada' ? 'emerald' : 'rose'}>
                   {r.estado}
-                </span>
+                </Badge>
               </div>
 
               <h3 className="text-xl font-bold text-slate-800 mb-1">{r.clienteNombre}</h3>

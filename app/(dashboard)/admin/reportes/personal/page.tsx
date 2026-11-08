@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Medal, TrendingUp, Award } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable } from '@/components/ui/DataTable';
 
 export default function DesempenoPersonalPage() {
   const [ranking, setRanking] = useState<any[]>([]);
@@ -43,10 +45,10 @@ export default function DesempenoPersonalPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-10">
-        <h1 className="text-4xl font-black text-slate-800 italic uppercase tracking-tighter">Desempeño del Personal</h1>
-        <p className="text-slate-500 font-medium">Ranking de productividad y eficiencia de ventas</p>
-      </div>
+      <PageHeader
+        title="Desempeño del Personal"
+        description="Ranking de productividad y eficiencia de ventas"
+      />
 
       {/* El Top 1 (Ganador) */}
       <div className="bg-gradient-to-r from-amber-400 to-amber-600 p-1 rounded-[3rem] mb-12 shadow-2xl shadow-amber-200">
@@ -75,7 +77,7 @@ export default function DesempenoPersonalPage() {
                     <Award className="text-blue-600" /> Tabla de Clasificación
                 </h3>
             </div>
-            <table className="w-full text-left">
+            <DataTable>
                 <thead className="bg-slate-50">
                     <tr className="text-[10px] uppercase font-black text-slate-400">
                         <th className="p-6">Pos.</th>
@@ -94,7 +96,7 @@ export default function DesempenoPersonalPage() {
                         </tr>
                     ))}
                 </tbody>
-            </table>
+            </DataTable>
         </div>
 
         {/* Resumen de Eficiencia (Ticket Promedio) */}

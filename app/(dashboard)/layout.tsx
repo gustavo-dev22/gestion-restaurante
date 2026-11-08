@@ -1,5 +1,6 @@
 'use client';
 import Sidebar from '@/components/sidebar';
+import Topbar from '@/components/topbar';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { token, hasHydrated } = useAuthStore();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -37,10 +39,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
-        {children}
-      </main>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1">{children}</main>
+      </div>
     </div>
   );
 }

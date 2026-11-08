@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { 
+import {
   Plus, Edit, Trash2, LayoutGrid, Loader2, 
   Users, MapPin, CheckCircle2, XCircle, Clock, Construction 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
 
 interface Mesa {
   id: number;
@@ -202,15 +204,15 @@ export default function MesasPage() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-end mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestión de Mesas</h1>
-          <p className="text-slate-500 text-sm">Configura la distribución física de tu local</p>
-        </div>
-        <button onClick={handleAgregar} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md hover:bg-blue-700 transition-all">
-          <Plus size={18} /> Nueva Mesa
-        </button>
-      </div>
+      <PageHeader
+        title="Gestión de Mesas"
+        description="Configura la distribución física de tu local"
+        actions={
+          <Button onClick={handleAgregar}>
+            <Plus size={18} /> Nueva Mesa
+          </Button>
+        }
+      />
 
       {/* Filtros de Zona */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
@@ -246,7 +248,7 @@ export default function MesasPage() {
                   <div className={`p-3 rounded-xl ${estilo.bg} ${estilo.text}`}>
                     <LayoutGrid size={24} />
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
                     <button onClick={() => handleEditar(mesa)} className="p-2 text-slate-400 hover:text-blue-600"><Edit size={16}/></button>
                     <button 
                       onClick={() => {

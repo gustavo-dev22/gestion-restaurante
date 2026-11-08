@@ -1,8 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Edit, Trash2, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as Icons from 'lucide-react'; // Importamos todos los iconos
+import { Plus, Edit, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { DataTable, DataTablePagination } from '@/components/ui/DataTable';
+import { Badge } from '@/components/ui/Badge';
 
 interface Categoria {
   id: number;
@@ -28,7 +32,7 @@ export default function CategoriasPage() {
       const res = await fetch('/api/categorias');
       const data = await res.json();
       if (Array.isArray(data)) setCategorias(data);
-    } catch (error) {
+    } catch {
       setCategorias([]);
     } finally {
       setLoading(false);
@@ -238,12 +242,15 @@ export default function CategoriasPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Mantenimiento de Categorías</h1>
-        <button onClick={handleAgregar} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
-          <Plus size={18} /> Nueva Categoría
-        </button>
-      </div>
+      <PageHeader
+        title="Mantenimiento de Categorías"
+        description="Organiza las categorías de la carta por área de producción"
+        actions={
+          <Button onClick={handleAgregar}>
+            <Plus size={18} /> Nueva Categoría
+          </Button>
+        }
+      />
 
       {/* Tabla */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -253,7 +260,7 @@ export default function CategoriasPage() {
           <div className="py-20 flex flex-col items-center text-slate-400"><AlertCircle className="mb-2" /> Sin registros</div>
         ) : (
           <>
-            <table className="w-full text-left">
+            <DataTable>
               <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
@@ -277,13 +284,9 @@ export default function CategoriasPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">{cat.descripcion || 'Sin descripción'}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        cat.area === 'Bebidas' ? 'bg-blue-100 text-blue-700' : 
-                        cat.area === 'Postres' ? 'bg-purple-100 text-purple-700' : 
-                        'bg-orange-100 text-orange-700'
-                      }`}>
+                      <Badge tone={cat.area === 'Bebidas' ? 'blue' : cat.area === 'Postres' ? 'purple' : 'orange'}>
                         {cat.area}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-6 py-4 flex justify-center gap-2">
                       <button onClick={() => handleEditar(cat)} className="p-2 text-slate-400 hover:text-blue-600 transition"><Edit size={18} /></button>
@@ -292,28 +295,19 @@ export default function CategoriasPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
 
-            {/* Paginación */}
-            <div className="bg-slate-50 px-6 py-3 border-t flex justify-between items-center text-sm text-slate-600">
-              <p>Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, categorias.length)} de {categorias.length}</p>
-              <div className="flex gap-2">
-                <button 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => prev - 1)}
-                  className="p-1 rounded border bg-white disabled:opacity-30"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button 
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                  className="p-1 rounded border bg-white disabled:opacity-30"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-            </div>
+            <DataTablePagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPrev={() => setCurrentPage((prev) => prev - 1)}
+              onNext={() => setCurrentPage((prev) => prev + 1)}
+              info={
+                <p>
+                  Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, categorias.length)} de {categorias.length}
+                </p>
+              }
+            />
           </>
         )}
       </div>

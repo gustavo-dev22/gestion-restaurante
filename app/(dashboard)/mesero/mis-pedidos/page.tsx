@@ -2,10 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
-import { 
-  Clock, Receipt, PlusCircle, ArrowRight, 
-  Loader2, Utensils, AlertCircle 
-} from 'lucide-react';
+import { Clock, Receipt, PlusCircle, Loader2, Utensils } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function MisPedidosPage() {
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -91,15 +89,15 @@ export default function MisPedidosPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Mis Pedidos Activos</h1>
-          <p className="text-slate-500 text-sm">Seguimiento de mesas en servicio</p>
-        </div>
-        <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl font-bold text-sm">
-          {pedidos.length} Mesas atendiendo
-        </div>
-      </div>
+      <PageHeader
+        title="Mis Pedidos Activos"
+        description="Seguimiento de mesas en servicio"
+        actions={
+          <div className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
+            {pedidos.length} Mesas atendiendo
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4">
         {pedidos.length === 0 ? (

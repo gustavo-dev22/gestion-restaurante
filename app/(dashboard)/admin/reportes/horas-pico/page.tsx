@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Clock, TrendingUp, Users } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function HorasPicoPage() {
   const [data, setData] = useState<any>(null);
@@ -44,10 +45,10 @@ export default function HorasPicoPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-10">
-        <h1 className="text-4xl font-black text-slate-800 italic uppercase tracking-tighter">Reporte de Horas Pico</h1>
-        <p className="text-slate-500 font-medium">Análisis de flujo de clientes por franja horaria</p>
-      </div>
+      <PageHeader
+        title="Reporte de Horas Pico"
+        description="Análisis de flujo de clientes por franja horaria"
+      />
 
       {/* Cards de Resumen Rápido */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">

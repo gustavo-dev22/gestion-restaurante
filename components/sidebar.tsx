@@ -1,99 +1,316 @@
-'use client';
-import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
-import * as Icons from 'lucide-react';
-import Swal from 'sweetalert2';
-import { LogOut } from 'lucide-react';
+"use client";
 
-export default function Sidebar() {
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import Swal from "sweetalert2";
+import type { LucideIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  Home,
+  ShoppingCart,
+  ShoppingBag,
+  ClipboardList,
+  ClipboardCheck,
+  Utensils,
+  UtensilsCrossed,
+  ChefHat,
+  CookingPot,
+  Flame,
+  Package,
+  Boxes,
+  Layers,
+  Tags,
+  Tag,
+  LayoutGrid,
+  Grid2x2,
+  Armchair,
+  Users,
+  UserRound,
+  UserCog,
+  CalendarCheck,
+  CalendarDays,
+  Calendar,
+  Clock,
+  Receipt,
+  CreditCard,
+  DollarSign,
+  TrendingUp,
+  BarChart2,
+  BarChart3,
+  PieChart,
+  LineChart,
+  FileText,
+  FileBarChart,
+  ListOrdered,
+  ListChecks,
+  Truck,
+  Wallet,
+  Store,
+  Building2,
+  Bell,
+  QrCode,
+  ScanLine,
+  MapPin,
+  Star,
+  Award,
+  Medal,
+  Coffee,
+  Wine,
+  Beer,
+  IceCream,
+  Cake,
+  Salad,
+  Pizza,
+  Sandwich,
+  Settings,
+  ShieldCheck,
+  KeyRound,
+  Lock,
+  LogOut,
+  HelpCircle,
+  X,
+} from "lucide-react";
+import { useAuthStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
+import type { SasiMenuObject, SasiSistema } from "@/lib/types";
+
+const ICONS: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Home,
+  ShoppingCart,
+  ShoppingBag,
+  ClipboardList,
+  ClipboardCheck,
+  Utensils,
+  UtensilsCrossed,
+  ChefHat,
+  CookingPot,
+  Flame,
+  Package,
+  Boxes,
+  Layers,
+  Tags,
+  Tag,
+  LayoutGrid,
+  Grid2x2,
+  Armchair,
+  Users,
+  UserRound,
+  UserCog,
+  CalendarCheck,
+  CalendarDays,
+  Calendar,
+  Clock,
+  Receipt,
+  CreditCard,
+  DollarSign,
+  TrendingUp,
+  BarChart2,
+  BarChart3,
+  PieChart,
+  LineChart,
+  FileText,
+  FileBarChart,
+  ListOrdered,
+  ListChecks,
+  Truck,
+  Wallet,
+  Store,
+  Building2,
+  Bell,
+  QrCode,
+  ScanLine,
+  MapPin,
+  Star,
+  Award,
+  Medal,
+  Coffee,
+  Wine,
+  Beer,
+  IceCream,
+  Cake,
+  Salad,
+  Pizza,
+  Sandwich,
+  Settings,
+  ShieldCheck,
+  KeyRound,
+  Lock,
+};
+
+function resolveIcon(name: string | null | undefined): LucideIcon {
+  if (!name) return HelpCircle;
+  return ICONS[name] || HelpCircle;
+}
+
+interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const router = useRouter();
-  
-  // 1. Identificar el sistema y el rol activo
-  const sistemaRestaurante = user?.sistemas.find((s: any) => s.id === 13);
-  const rolActivo = sistemaRestaurante?.roles.find((r: any) => r.esPrincipal) 
-                    || sistemaRestaurante?.roles?.[0];
+  const pathname = usePathname();
 
-  const objetos = rolActivo?.objetos || [];
-  const menusPadre = objetos.filter((obj: any) => obj.tipo === 'Menu').sort((a: any, b: any) => a.orden - b.orden);
+  const sistemas = (user?.sistemas as SasiSistema[] | undefined) ?? [];
+  const sistemaRestaurante = sistemas.find((s) => s.id === 13);
+  const rolActivo =
+    sistemaRestaurante?.roles?.find((r) => r.esPrincipal) || sistemaRestaurante?.roles?.[0];
+
+  const objetos: SasiMenuObject[] = rolActivo?.objetos || [];
+  const menusPadre = objetos
+    .filter((obj) => obj.tipo === "Menu")
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+
+  const isActive = (url?: string) => {
+    if (!url || url === "#") return false;
+    if (url === "/") return pathname === "/";
+    return pathname === url || pathname.startsWith(url.endsWith("/") ? url : `${url}/`);
+  };
 
   const handleLogout = () => {
     Swal.fire({
-      title: '¿Cerrar sesión?',
+      title: "¿Cerrar sesión?",
       text: "Tendrás que ingresar tus credenciales nuevamente.",
-      icon: 'question',
+      icon: "question",
       showCancelButton: true,
-      confirmButtonColor: '#2563eb',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Sí, salir',
-      cancelButtonText: 'Cancelar',
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, salir",
+      cancelButtonText: "Cancelar",
       allowEscapeKey: false,
-      allowOutsideClick: false
+      allowOutsideClick: false,
     }).then((result) => {
       if (result.isConfirmed) {
         logout();
-        router.replace('/login');
+        onClose();
+        router.replace("/login");
       }
     });
   };
 
   return (
-    <aside className="w-72 bg-slate-900 text-white min-h-screen p-4 flex flex-col shadow-xl">
-      <div className="mb-8 px-2 border-b border-slate-800 pb-4">
-        <h2 className="text-xl font-bold text-blue-400">Gestión Restaurante</h2>
-        <div className="mt-2">
-          <p className="text-sm font-medium text-slate-200 break-words leading-tight">
-            {user?.nombreCompleto}
-          </p>
-          {/* Mostramos el Rol debajo del nombre */}
-          <p className="text-[10px] uppercase tracking-wider text-blue-500 font-bold mt-1">
-            {rolActivo?.nombreRol || 'Usuario'}
-          </p>
-        </div>
-      </div>
+    <>
+      {/* Overlay móvil / tablet */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className={cn(
+          "fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm transition-opacity lg:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+      />
 
-      <nav className="space-y-2 flex-1 overflow-y-auto">
-        {menusPadre.map((menu: any) => {
-          const submenus = objetos.filter((sub: any) => sub.idPadre === menu.idObjeto);
-          const IconComponent = (Icons as any)[menu.icono] || Icons.HelpCircle;
-
-          return (
-            <div key={menu.idObjeto}>
-              <div 
-                onClick={() => menu.url !== '#' && router.push(menu.url)}
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800 transition cursor-pointer group"
-              >
-                <IconComponent size={20} className="text-blue-400 group-hover:text-blue-300" />
-                <span className="font-medium group-hover:text-white">{menu.nombre}</span>
-              </div>
-
-              {submenus.length > 0 && (
-                <div className="ml-9 mt-1 space-y-1 border-l border-slate-700">
-                  {submenus.map((sub: any) => (
-                    <div 
-                      key={sub.idObjeto}
-                      onClick={() => router.push(sub.url)}
-                      className="block p-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition cursor-pointer"
-                    >
-                      {sub.nombre}
-                    </div>
-                  ))}
-                </div>
-              )}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col bg-slate-900 p-4 text-white shadow-xl transition-transform duration-300 ease-in-out",
+          "lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="mb-6 flex items-start justify-between gap-2 border-b border-slate-800 px-2 pb-4">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-blue-400">Gestión Restaurante</h2>
+            <div className="mt-2">
+              <p className="break-words text-sm font-medium leading-tight text-slate-200">
+                {user?.nombreCompleto}
+              </p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-blue-500">
+                {rolActivo?.nombreRol || "Usuario"}
+              </p>
             </div>
-          );
-        })}
-      </nav>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar menú"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-      <div className="mt-auto pt-4 border-t border-slate-800">
-        <button 
-          onClick={handleLogout}
-          className="flex items-center gap-3 w-full p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition cursor-pointer"
-        >
-          <LogOut size={20} />
-          <span className="font-medium">Cerrar Sesión</span>
-        </button>
-      </div>
-    </aside>
+        <nav className="flex-1 space-y-1 overflow-y-auto">
+          {menusPadre.map((menu) => {
+            const submenus = objetos.filter((sub) => sub.idPadre === menu.idObjeto);
+            const IconComponent = resolveIcon(menu.icono);
+            const hasUrl = Boolean(menu.url && menu.url !== "#");
+            const active = isActive(menu.url);
+            const parentActive = active || submenus.some((sub) => isActive(sub.url));
+
+            return (
+              <div key={menu.idObjeto}>
+                {hasUrl ? (
+                  <Link
+                    href={menu.url || "#"}
+                    onClick={onClose}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-lg p-2.5 transition-colors",
+                      parentActive
+                        ? "bg-slate-800 text-white"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <IconComponent
+                      size={20}
+                      className={cn(
+                        "shrink-0 transition-colors",
+                        parentActive ? "text-blue-300" : "text-blue-400 group-hover:text-blue-300"
+                      )}
+                    />
+                    <span className="min-w-0 truncate font-medium">{menu.nombre}</span>
+                  </Link>
+                ) : (
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg p-2.5",
+                      parentActive ? "text-white" : "text-slate-300"
+                    )}
+                  >
+                    <IconComponent size={20} className="shrink-0 text-blue-400" />
+                    <span className="min-w-0 truncate font-medium">{menu.nombre}</span>
+                  </div>
+                )}
+
+                {submenus.length > 0 && (
+                  <div className="ml-9 mt-1 space-y-1 border-l border-slate-700 pl-1">
+                    {submenus.map((sub) => {
+                      const subActive = isActive(sub.url);
+                      return (
+                        <Link
+                          key={sub.idObjeto}
+                          href={sub.url || "#"}
+                          onClick={onClose}
+                          className={cn(
+                            "block rounded-md px-2 py-2 text-sm transition-colors",
+                            subActive
+                              ? "bg-slate-800 font-semibold text-white"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          )}
+                        >
+                          {sub.nombre}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto border-t border-slate-800 pt-4">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg p-2.5 text-red-400 transition-colors hover:bg-red-500/10"
+          >
+            <LogOut size={20} />
+            <span className="font-medium">Cerrar Sesión</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

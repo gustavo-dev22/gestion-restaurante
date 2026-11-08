@@ -1,11 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { 
-  Plus, Edit, Trash2, Package, Loader2, Search, 
-  AlertCircle, ChevronLeft, ChevronRight, Tag 
+  Plus, Edit, Trash2, Package, Loader2, Search, AlertCircle 
 } from 'lucide-react';
 import * as Icons from 'lucide-react'; 
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { DataTable, DataTablePagination } from '@/components/ui/DataTable';
 
 interface Producto {
   id: number;
@@ -235,27 +238,29 @@ export default function ProductosPage() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-end mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Productos</h1>
-          <p className="text-slate-500 text-sm">Control de platos e inventario</p>
-        </div>
-        <button onClick={handleAgregar} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md hover:bg-blue-700 transition-all">
-          <Plus size={18} /> Nuevo Producto
-        </button>
-      </div>
+      <PageHeader
+        title="Productos"
+        description="Control de platos e inventario"
+        actions={
+          <Button onClick={handleAgregar}>
+            <Plus size={18} /> Nuevo Producto
+          </Button>
+        }
+      />
 
       <div className="mb-4 relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-        <input 
-          type="text" placeholder="Buscar por nombre o categoría..." 
-          className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-          value={filtro} onChange={(e) => setFiltro(e.target.value)}
+        <Input
+          type="text"
+          placeholder="Buscar por nombre o categoría..."
+          className="pl-10"
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
         />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-left">
+        <DataTable>
           <thead className="bg-slate-50 border-b">
             <tr>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Producto</th>
@@ -313,16 +318,16 @@ export default function ProductosPage() {
               ))
             )}
           </tbody>
-        </table>
+        </DataTable>
 
         {productosFiltrados.length > 0 && (
-          <div className="bg-slate-50 px-6 py-4 border-t flex justify-between items-center text-sm">
-            <span className="text-slate-500">Página {currentPage} de {totalPages}</span>
-            <div className="flex gap-2">
-              <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 border rounded bg-white disabled:opacity-30"><ChevronLeft size={18}/></button>
-              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 border rounded bg-white disabled:opacity-30"><ChevronRight size={18}/></button>
-            </div>
-          </div>
+          <DataTablePagination
+            page={currentPage}
+            totalPages={totalPages}
+            onPrev={() => setCurrentPage((p) => p - 1)}
+            onNext={() => setCurrentPage((p) => p + 1)}
+            info={<span className="text-slate-500">Página {currentPage} de {totalPages}</span>}
+          />
         )}
       </div>
     </div>

@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Star, Zap, Puzzle, Trash2 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable } from '@/components/ui/DataTable';
 
 export default function IngenieriaMenuPage() {
   const [reporte, setReporte] = useState<any>(null);
@@ -60,10 +62,10 @@ export default function IngenieriaMenuPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-10">
-        <h1 className="text-4xl font-black text-slate-800 italic uppercase tracking-tighter">Ingeniería de Menú</h1>
-        <p className="text-slate-500 font-medium">Análisis de popularidad vs rentabilidad (Matriz Boston)</p>
-      </div>
+      <PageHeader
+        title="Ingeniería de Menú"
+        description="Análisis de popularidad vs rentabilidad (Matriz Boston)"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         {['ESTRELLA', 'CABALLO', 'ROMPECABEZAS', 'PERRO'].map(cat => (
@@ -81,7 +83,7 @@ export default function IngenieriaMenuPage() {
       </div>
 
       <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-sm">
-        <table className="w-full text-left">
+        <DataTable>
           <thead className="bg-slate-50 border-b-2 border-slate-100">
             <tr>
               <th className="p-6 text-xs font-black uppercase text-slate-400">Plato</th>
@@ -114,7 +116,7 @@ export default function IngenieriaMenuPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </div>
   );

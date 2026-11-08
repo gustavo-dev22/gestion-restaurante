@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { 
-  Receipt, Calendar, User, DollarSign, 
-  Search, Eye, FileText, Loader2 
-} from 'lucide-react';
+import { Eye, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { DataTable } from '@/components/ui/DataTable';
 
 export default function VentasPage() {
   const [ventas, setVentas] = useState<any[]>([]);
@@ -54,16 +53,16 @@ export default function VentasPage() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Historial de Ventas</h1>
-          <p className="text-slate-500 text-sm">Registro de todos los pedidos liquidados</p>
-        </div>
-        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-right">
-          <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Total Ingresos</p>
-          <p className="text-3xl font-black text-emerald-700">S/ {totalIngresos.toFixed(2)}</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Historial de Ventas"
+        description="Registro de todos los pedidos liquidados"
+        actions={
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-right">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Total Ingresos</p>
+            <p className="text-2xl font-black text-emerald-700">S/ {totalIngresos.toFixed(2)}</p>
+          </div>
+        }
+      />
 
       <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
         {['hoy', 'ayer', 'semana', 'mes'].map((f) => (
@@ -80,7 +79,7 @@ export default function VentasPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-left">
+        <DataTable>
           <thead className="bg-slate-50 border-b">
             <tr>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Ticket</th>
@@ -122,7 +121,7 @@ export default function VentasPage() {
               ))
             )}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </div>
   );

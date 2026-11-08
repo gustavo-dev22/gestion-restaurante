@@ -52,7 +52,7 @@ export default function NotificacionesMesero({ onPedidoAceptado }: { onPedidoAce
   if (pendientes.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-bounce">
+    <div className="fixed right-4 top-20 z-50 animate-bounce">
       <div className="bg-rose-600 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white">
         <div className="relative">
           <Bell size={24} className="animate-ring" />

@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Utensils, Search, ArrowRight, Loader2 } from 'lucide-react';
+import { Utensils, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import Swal from 'sweetalert2';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function NuevoPedidoQuickPage() {
   const [mesasLibres, setMesasLibres] = useState<any[]>([]);
@@ -22,7 +23,7 @@ export default function NuevoPedidoQuickPage() {
       });
   }, []);
 
-  const abrirMesaRapido = async (mesaId: number, numero: string) => {
+  const abrirMesaRapido = async (mesaId: number) => {
     if (!usuario?.id) {
       return Swal.fire('Error de sesión', 'No se pudo identificar al mesero.', 'error');
     }
@@ -46,10 +47,10 @@ export default function NuevoPedidoQuickPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Toma de Pedido Rápida</h1>
-        <p className="text-slate-500">Selecciona una mesa disponible para comenzar</p>
-      </div>
+      <PageHeader
+        title="Toma de Pedido Rápida"
+        description="Selecciona una mesa disponible para comenzar"
+      />
 
       <div className="grid grid-cols-1 gap-4">
         {mesasLibres.length === 0 ? (
@@ -61,7 +62,7 @@ export default function NuevoPedidoQuickPage() {
           mesasLibres.map((mesa) => (
             <button
               key={mesa.id}
-              onClick={() => abrirMesaRapido(mesa.id, mesa.numero)}
+              onClick={() => abrirMesaRapido(mesa.id)}
               className="bg-white border border-slate-200 p-5 rounded-2xl flex justify-between items-center hover:border-blue-500 hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">

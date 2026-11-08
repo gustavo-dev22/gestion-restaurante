@@ -5,6 +5,8 @@ import {
   CheckCircle, ArrowRight, Loader2, AlertCircle 
 } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -60,16 +62,16 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">Panel de Administración</h1>
-        <p className="text-slate-500">Resumen general de tu restaurante</p>
-      </div>
+      <PageHeader
+        title="Panel de Administración"
+        description="Resumen general de tu restaurante"
+      />
 
       {/* Grid de Tarjetas Principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         
         {/* Productos */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <Card className="p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
               <Package size={24} />
@@ -78,10 +80,10 @@ export default function AdminDashboard() {
           </div>
           <h3 className="text-3xl font-bold text-slate-800">{stats.productos}</h3>
           <p className="text-slate-500 text-sm">Productos Activos</p>
-        </div>
+        </Card>
 
         {/* Categorías */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <Card className="p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
               <Layers size={24} />
@@ -89,10 +91,10 @@ export default function AdminDashboard() {
           </div>
           <h3 className="text-3xl font-bold text-slate-800">{stats.categorias}</h3>
           <p className="text-slate-500 text-sm">Categorías</p>
-        </div>
+        </Card>
 
         {/* Mesas Libres */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <Card className="p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
               <CheckCircle size={24} />
@@ -101,10 +103,10 @@ export default function AdminDashboard() {
           </div>
           <h3 className="text-3xl font-bold text-slate-800">{stats.mesasLibres} / {stats.mesasTotal}</h3>
           <p className="text-slate-500 text-sm">Mesas Disponibles</p>
-        </div>
+        </Card>
 
         {/* Alerta Stock */}
-        <div className={`${stats.stockBajo > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'} p-6 rounded-2xl shadow-sm border transition-colors`}>
+        <Card className={`${stats.stockBajo > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'} p-6 transition-colors`}>
           <div className={`flex justify-between items-start mb-4 ${stats.stockBajo > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
             <div className={`p-3 rounded-xl ${stats.stockBajo > 0 ? 'bg-orange-100' : 'bg-slate-50'}`}>
               <AlertTriangle size={24} />
@@ -112,7 +114,7 @@ export default function AdminDashboard() {
           </div>
           <h3 className="text-3xl font-bold text-slate-800">{stats.stockBajo}</h3>
           <p className="text-slate-500 text-sm">Productos con Stock Bajo</p>
-        </div>
+        </Card>
       </div>
 
       {/* Sección de Estado del Salón y Accesos Rápidos */}
