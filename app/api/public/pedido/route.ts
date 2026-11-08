@@ -42,6 +42,7 @@ export async function POST(request: Request) {
           total: total,
           estado: 'Por Confirmar', // Estado especial para que el mesero lo acepte
           nombreMesero: 'Cliente (Digital)',
+          fecha_creacion: new Date(),
           detalles: {
             create: items.map((item: any) => ({
               productoId: item.id,

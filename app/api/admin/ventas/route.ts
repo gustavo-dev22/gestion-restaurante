@@ -1,27 +1,28 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { peruEndOfDay, peruStartOfDay } from '@/lib/utils';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const filtro = searchParams.get('rango') || 'hoy';
 
-    // Calculamos la fecha de inicio según el filtro (Zona Horaria Local)
-    let fechaInicio = new Date();
-    fechaInicio.setHours(0, 0, 0, 0); // Inicio de hoy
-
-    let fechaFin = new Date(); // Por defecto, hasta ahora
-    fechaFin.setHours(23, 59, 59, 999);
+    // Límites calculados en hora de Perú (UTC-05:00) como instantes reales.
+    let fechaInicio: Date;
+    let fechaFin: Date;
 
     if (filtro === 'ayer') {
-      fechaInicio.setDate(fechaInicio.getDate() - 1);
-      // El límite de 'ayer' es hoy a las 00:00:00
-      fechaFin = new Date(fechaInicio);
-      fechaFin.setHours(23, 59, 59, 999);
+      fechaInicio = peruStartOfDay(1);
+      fechaFin = peruEndOfDay(1);
     } else if (filtro === 'semana') {
-      fechaInicio.setDate(fechaInicio.getDate() - 7);
+      fechaInicio = peruStartOfDay(7);
+      fechaFin = new Date();
     } else if (filtro === 'mes') {
-      fechaInicio.setMonth(fechaInicio.getMonth() - 1);
+      fechaInicio = peruStartOfDay(30);
+      fechaFin = new Date();
+    } else {
+      fechaInicio = peruStartOfDay(0);
+      fechaFin = new Date();
     }
 
     const ventas = await prisma.pedido.findMany({

@@ -43,6 +43,7 @@ export async function POST(request: Request) {
         estado: "Llamado",
         total: 0,
         nombreMesero: "Cliente (Llamado)",
+        fecha_creacion: new Date(),
       },
       select: { id: true },
     });

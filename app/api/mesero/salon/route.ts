@@ -25,7 +25,8 @@ export async function PATCH(request: Request) {
           usuarioId: usuarioId,
           nombreMesero: nombreMesero,
           total: 0,
-          estado: 'Pendiente'
+          estado: 'Pendiente',
+          fecha_creacion: new Date()
         }
       });
 

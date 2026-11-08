@@ -29,7 +29,8 @@ export async function POST(request: Request) {
         stock: parseInt(body.stock) || 0, // Asegura que sea entero
         categoriaId: parseInt(body.categoriaId), // Relación con Categorías
         imagen_url: body.imagen_url || null,
-        activo: true
+        activo: true,
+        fecha_creacion: new Date()
       }
     });
 

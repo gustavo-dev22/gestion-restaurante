@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         icono: body.icono || 'Tag',
         area: body.area || 'Cocina',
         activo: body.activo !== undefined ? body.activo : true,
+        fecha_creacion: new Date(),
       }
     });
 

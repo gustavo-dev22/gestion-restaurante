@@ -68,6 +68,7 @@ export async function POST(request: Request) {
         numPersonas: personas,
         mesaId: mesaNumerica,
         estado: 'Confirmada',
+        fecha_creacion: new Date(),
       },
     });
 

@@ -36,7 +36,8 @@ export async function POST(request: Request) {
         numero: body.numero,
         capacidad: parseInt(body.capacidad),
         zona: body.zona,
-        estado: 'Libre'
+        estado: 'Libre',
+        fecha_creacion: new Date()
       }
     });
     return NextResponse.json(nueva);

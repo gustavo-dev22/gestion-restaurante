@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getPeruHour } from '@/lib/utils';
 
 export async function GET() {
   try {
@@ -28,7 +29,7 @@ export async function GET() {
             ? pedido.fecha_creacion 
             : new Date(pedido.fecha_creacion);
 
-            const hora = fecha.getHours();
+            const hora = getPeruHour(fecha);
             
             // Validamos que la hora esté en el rango 0-23
             if (hora >= 0 && hora < 24) {
