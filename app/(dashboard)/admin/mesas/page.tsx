@@ -6,7 +6,6 @@ import {
   Edit,
   Trash2,
   LayoutGrid,
-  Loader2,
   Users,
   MapPin,
   CheckCircle2,
@@ -15,6 +14,7 @@ import {
   Construction,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Input, selectBase } from "@/components/ui/Input";
 import { Label, FieldError } from "@/components/ui/Field";
@@ -203,8 +203,15 @@ export default function MesasPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="animate-spin text-blue-600" size={40} />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="rounded-2xl border-2 border-slate-100 bg-white p-5">
+              <Skeleton className="mb-4 h-12 w-12 rounded-xl" />
+              <Skeleton className="mb-2 h-5 w-24" />
+              <Skeleton className="mb-1 h-4 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
         </div>
       ) : mesasFiltradas.length === 0 ? (
         <div className="rounded-xl border bg-white py-20 text-center text-slate-500">

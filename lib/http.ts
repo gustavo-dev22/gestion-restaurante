@@ -1,6 +1,7 @@
 import { useAuthStore } from "@/lib/store";
 import { logger } from "@/lib/logger";
 import { generateIdempotencyKey } from "@/lib/idempotency-key";
+import { toastWarning } from "@/components/ui/Toast";
 
 export class HttpError extends Error {
   status: number;
@@ -45,7 +46,15 @@ function handleUnauthorized() {
 
   const current = `${window.location.pathname}${window.location.search}`;
   if (!window.location.pathname.startsWith("/login")) {
-    window.location.assign(`/login?redirect=${encodeURIComponent(current)}`);
+    toastWarning(
+      "Tu sesión ha expirado",
+      "Redirigiendo al inicio de sesión en unos segundos..."
+    );
+    window.setTimeout(() => {
+      window.location.assign(
+        `/login?redirect=${encodeURIComponent(current)}&expired=1`
+      );
+    }, 2000);
   }
 }
 

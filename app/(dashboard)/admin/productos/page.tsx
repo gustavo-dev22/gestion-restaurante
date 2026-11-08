@@ -3,8 +3,9 @@
 import { createElement, useMemo, useState } from "react";
 import Image from "next/image";
 import useSWR from "swr";
-import { Plus, Edit, Trash2, Package, Loader2, Search, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Input, selectBase } from "@/components/ui/Input";
 import { Label, FieldError } from "@/components/ui/Field";
@@ -229,7 +230,7 @@ export default function ProductosPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <DataTable>
+        <DataTable label="Productos de la carta">
           <thead className="border-b bg-slate-50">
             <tr>
               <th className="px-6 py-4 text-xs font-bold uppercase text-slate-600">Producto</th>
@@ -241,11 +242,15 @@ export default function ProductosPage() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr>
-                <td colSpan={5} className="py-20 text-center text-slate-500">
-                  <Loader2 className="mr-2 inline animate-spin" /> Cargando...
-                </td>
-              </tr>
+              Array.from({ length: 6 }).map((_, index) => (
+                <tr key={index} className="border-b border-slate-100">
+                  <td className="px-6 py-4"><Skeleton className="h-4 w-36" /></td>
+                  <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
+                  <td className="px-6 py-4"><Skeleton className="h-4 w-16" /></td>
+                  <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                  <td className="px-6 py-4"><Skeleton className="ml-auto h-8 w-24" /></td>
+                </tr>
+              ))
             ) : currentItems.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-20 text-center">

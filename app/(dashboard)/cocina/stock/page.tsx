@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Package, Search, Loader2 } from 'lucide-react';
+import { Package, Search } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Input } from '@/components/ui/Input';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
@@ -56,7 +57,24 @@ export default function InventarioRapidoPage() {
     p.categoria.nombre.toLowerCase().includes(filtro.toLowerCase())
   );
 
-  if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
+  if (loading) {
+    return (
+      <div className="p-6">
+        <Skeleton className="mb-2 h-8 w-64" />
+        <Skeleton className="mb-6 h-4 w-80" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="rounded-xl border bg-white p-5">
+              <Skeleton className="mb-3 h-10 w-10 rounded-lg" />
+              <Skeleton className="mb-2 h-5 w-32" />
+              <Skeleton className="mb-1 h-4 w-24" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">

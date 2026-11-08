@@ -183,7 +183,7 @@ export default function CategoriasPage() {
           />
         ) : (
           <>
-            <DataTable>
+            <DataTable label="Categorías de la carta">
               <thead className="border-b bg-slate-50">
                 <tr>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">ID</th>

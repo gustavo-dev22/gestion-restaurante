@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Utensils, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { toastError } from '@/components/ui/Toast';
 import { http, getErrorMessage } from '@/lib/http';
 
@@ -57,7 +58,23 @@ export default function NuevoPedidoQuickPage() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin inline" /></div>;
+  if (loading) {
+    return (
+      <div className="p-6">
+        <Skeleton className="mb-2 h-8 w-72" />
+        <Skeleton className="mb-6 h-4 w-96" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="rounded-xl border bg-white p-5">
+              <Skeleton className="mb-3 h-10 w-10 rounded-lg" />
+              <Skeleton className="mb-2 h-5 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">

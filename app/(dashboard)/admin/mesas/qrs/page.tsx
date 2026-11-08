@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer, Loader2, QrCode } from 'lucide-react';
+import { Printer, QrCode } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { http } from '@/lib/http';
 
 interface MesaQR {
@@ -31,7 +32,25 @@ export default function GenerarQRPage() {
 
   const imprimir = () => window.print();
 
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-blue-600" /></div>;
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <Skeleton className="mb-2 h-7 w-64" />
+        <Skeleton className="mb-8 h-4 w-80" />
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div
+              key={index}
+              className="flex flex-col items-center rounded-2xl border-2 border-slate-100 bg-white p-8"
+            >
+              <Skeleton className="mb-4 h-40 w-40" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">

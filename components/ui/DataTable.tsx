@@ -6,16 +6,24 @@ export interface DataTableProps {
   children: ReactNode;
   className?: string;
   minWidthClass?: string;
+  /** Nombre accesible de la tabla para lectores de pantalla. */
+  label?: string;
 }
 
 /**
  * Contenedor de tabla con scroll horizontal seguro y cabecera fija.
  * Mantiene el marcado <thead>/<tbody> de cada página.
  */
-export function DataTable({ children, className, minWidthClass = "min-w-[720px]" }: DataTableProps) {
+export function DataTable({
+  children,
+  className,
+  minWidthClass = "min-w-[720px]",
+  label,
+}: DataTableProps) {
   return (
     <div className={cn("w-full overflow-x-auto", className)}>
       <table
+        aria-label={label}
         className={cn(
           "w-full text-left",
           minWidthClass,

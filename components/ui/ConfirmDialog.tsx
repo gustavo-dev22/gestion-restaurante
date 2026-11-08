@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
 import Modal from "./Modal";
 import { Button } from "./Button";
@@ -58,6 +58,8 @@ export default function ConfirmDialog({
   hideCancel = false,
   children,
 }: ConfirmDialogProps) {
+  const descriptionId = useId();
+
   return (
     <Modal
       open={open}
@@ -66,6 +68,7 @@ export default function ConfirmDialog({
       size="sm"
       closeOnBackdrop={!loading}
       showCloseButton={!loading}
+      describedBy={descriptionId}
       footer={
         <>
           {!hideCancel && (
@@ -90,8 +93,8 @@ export default function ConfirmDialog({
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${iconWrap[variant]}`}>
           {icons[variant]}
         </div>
-        <div className="min-w-0 flex-1 text-sm text-slate-600">
-          {description && <div>{description}</div>}
+        <div id={descriptionId} className="min-w-0 flex-1 text-sm text-slate-600">
+          {description}
           {children}
         </div>
       </div>

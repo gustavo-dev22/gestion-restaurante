@@ -5,7 +5,7 @@ import { DataTable, DataTablePagination } from "./DataTable";
 describe("DataTable", () => {
   it("renderiza el contenido de la tabla", () => {
     render(
-      <DataTable>
+      <DataTable label="Productos de la carta">
         <thead>
           <tr>
             <th>Producto</th>
@@ -20,7 +20,10 @@ describe("DataTable", () => {
     );
 
     expect(screen.getByText("Lomo saltado")).toBeTruthy();
-    expect(screen.getByRole("table")).toBeTruthy();
+    expect(screen.getByRole("table", { name: "Productos de la carta" })).toBeTruthy();
+    expect(screen.getByRole("table").getAttribute("aria-label")).toBe(
+      "Productos de la carta"
+    );
   });
 });
 

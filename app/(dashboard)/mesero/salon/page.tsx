@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { LayoutGrid, Loader2, Users, CalendarCheck } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -124,7 +125,15 @@ export default function SalonMeseroPage() {
       />
 
       {loading ? (
-        <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="rounded-2xl border-2 border-slate-100 bg-white p-6">
+              <Skeleton className="mx-auto mb-4 h-12 w-12 rounded-xl" />
+              <Skeleton className="mx-auto mb-2 h-5 w-20" />
+              <Skeleton className="mx-auto h-4 w-24" />
+            </div>
+          ))}
+        </div>
       ) : mesas.length === 0 ? (
         <EmptyState
           icon={LayoutGrid}

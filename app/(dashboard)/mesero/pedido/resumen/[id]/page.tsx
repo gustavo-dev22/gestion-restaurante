@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, Plus, Receipt, Loader2 } from "lucide-react";
+import { ChevronLeft, Plus, Receipt } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
@@ -107,8 +108,18 @@ export default function ResumenPedido() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-slate-500">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
+      <div className="mx-auto w-full max-w-3xl p-6">
+        <Skeleton className="mb-2 h-8 w-64" />
+        <Skeleton className="mb-6 h-4 w-48" />
+        <div className="rounded-2xl border bg-white p-5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="mb-4 flex items-center justify-between gap-4">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-5 w-16" />
+            </div>
+          ))}
+          <Skeleton className="mt-6 h-10 w-full" />
+        </div>
       </div>
     );
   }

@@ -24,6 +24,8 @@ export interface ModalProps {
   size?: keyof typeof sizes;
   closeOnBackdrop?: boolean;
   showCloseButton?: boolean;
+  /** Id externo para aria-describedby cuando la descripción se renderiza fuera del header. */
+  describedBy?: string;
 }
 
 export default function Modal({
@@ -36,6 +38,7 @@ export default function Modal({
   size = "md",
   closeOnBackdrop = true,
   showCloseButton = true,
+  describedBy,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -116,7 +119,7 @@ export default function Modal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          aria-describedby={description ? descriptionId : undefined}
+          aria-describedby={description ? descriptionId : describedBy}
           tabIndex={-1}
           className={cn(
             "relative z-10 flex w-full flex-col rounded-2xl bg-white shadow-2xl focus:outline-none",

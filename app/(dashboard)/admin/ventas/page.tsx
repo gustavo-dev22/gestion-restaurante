@@ -119,7 +119,7 @@ export default function VentasPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <DataTable>
+        <DataTable label="Historial de ventas">
           <thead className="border-b bg-slate-50">
             <tr>
               <th className="px-6 py-4 text-xs font-bold uppercase text-slate-600">Ticket</th>

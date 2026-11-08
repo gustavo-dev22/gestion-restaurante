@@ -16,6 +16,7 @@ import {
   Utensils,
 } from "lucide-react";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { toastSuccess, toastError, toastInfo } from "@/components/ui/Toast";
 import { http, getErrorMessage } from "@/lib/http";
@@ -342,9 +343,20 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50">
-        <RefreshCw className="mb-4 animate-spin text-blue-600" size={40} />
-        <p className="font-bold text-slate-600">Verificando mesa...</p>
+      <div className="min-h-screen bg-slate-50 p-4">
+        <div className="mx-auto w-full max-w-3xl">
+          <Skeleton className="mb-4 h-28 w-full rounded-2xl" />
+          <Skeleton className="mb-4 h-10 w-56" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="rounded-2xl border bg-white p-3">
+                <Skeleton className="mb-2 h-24 w-full rounded-xl" />
+                <Skeleton className="mb-1 h-4 w-28" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

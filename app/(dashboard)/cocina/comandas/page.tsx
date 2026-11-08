@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Clock, CheckCircle2, Flame, Utensils, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle2, Flame, Utensils } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError } from '@/components/ui/Toast';
 import { http } from '@/lib/http';
@@ -99,7 +100,24 @@ export default function ComandasCocinaPage() {
     }
   };
 
-  if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 p-6">
+        <Skeleton className="mb-2 h-9 w-72 bg-slate-700" />
+        <Skeleton className="mb-8 h-4 w-56 bg-slate-800" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="rounded-2xl border border-slate-700 bg-slate-800 p-6">
+              <Skeleton className="mb-4 h-5 w-40 bg-slate-600" />
+              <Skeleton className="mb-2 h-4 w-full bg-slate-700" />
+              <Skeleton className="mb-2 h-4 w-3/4 bg-slate-700" />
+              <Skeleton className="mt-6 h-10 w-full rounded-xl bg-slate-700" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-slate-900 min-h-screen text-white">

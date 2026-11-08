@@ -4,8 +4,9 @@ import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   ShoppingCart, Plus, Minus, ChevronLeft, 
-  Loader2, Save, UtensilsCrossed, X 
+  Save, UtensilsCrossed, X 
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { toastSuccess, toastError, toastWarning, toastInfo } from '@/components/ui/Toast';
 import { http, getErrorMessage } from '@/lib/http';
@@ -206,12 +207,31 @@ export default function TomaPedidoPage() {
     return `${cantidad} ${label}`;
   };
 
-  if (loading) return (
-    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2">
-      <Loader2 className="animate-spin" size={40} />
-      <p>Cargando carta digital...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] flex-col gap-6 bg-slate-50 p-4 sm:p-6 lg:flex-row">
+        <div className="flex-1">
+          <Skeleton className="mb-6 h-8 w-56" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="rounded-2xl border bg-white p-4">
+                <Skeleton className="mb-3 h-28 w-full rounded-xl" />
+                <Skeleton className="mb-2 h-5 w-36" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="w-full rounded-2xl border bg-white p-5 lg:w-96">
+          <Skeleton className="mb-4 h-6 w-40" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="mb-3 h-12 w-full" />
+          ))}
+          <Skeleton className="mt-6 h-12 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-slate-50 lg:flex-row">
