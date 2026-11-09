@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, User, AlertCircle, ShieldCheck } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { getHomePath, type AuthUserLike } from "@/lib/roles";
 import { http } from "@/lib/http";
+import { getSafeRedirect } from "@/lib/safe-redirect";
 import { validateLogin, type LoginErrors } from "@/lib/validation";
 import { Input } from "@/components/ui/Input";
 import { Label, FieldError } from "@/components/ui/Field";
@@ -16,12 +17,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
+  const [ssoError, setSsoError] = useState<string | null>(null);
   const [errors, setErrors] = useState<LoginErrors>({});
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const logout = useAuthStore((state) => state.logout);
   const { isAuthenticated, hasHydrated, user } = useAuthStore();
   const router = useRouter();
+
+  const getLoginRedirect = () =>
+    getSafeRedirect(new URLSearchParams(window.location.search).get("redirect"));
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("error");
+    if (!code) return;
+
+    const description = params.get("error_description");
+    const mensajes: Record<string, string> = {
+      sasi_unavailable:
+        "No se pudo conectar con SASI. Verifica que el servicio esté disponible e inténtalo nuevamente.",
+      sso_config:
+        "La integración con SASI no está configurada correctamente. Contacta al administrador.",
+    };
+    setSsoError(description || mensajes[code] || "No se pudo iniciar sesión con SASI.");
+  }, []);
 
   useEffect(() => {
     if (!hasHydrated || !isAuthenticated) return;
@@ -31,7 +52,7 @@ export default function LoginPage() {
     http
       .get("/api/auth/session", { skipAuthRedirect: true })
       .then(() => {
-        if (active) router.replace(getHomePath(user));
+        if (active) router.replace(getLoginRedirect() ?? getHomePath(user));
       })
       .catch(() => {
         if (active) logout();
@@ -48,10 +69,20 @@ export default function LoginPage() {
     return Object.keys(next).length === 0;
   };
 
+  const handleSso = () => {
+    setSsoError(null);
+    setErrors({});
+    setSsoLoading(true);
+    const redirect = getLoginRedirect();
+    const query = redirect ? `?redirect=${encodeURIComponent(redirect)}` : "";
+    window.location.assign(`/api/auth/sso/start${query}`);
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!validate()) return;
 
+    setSsoError(null);
     setIsLoading(true);
     setErrors({});
 
@@ -68,7 +99,7 @@ export default function LoginPage() {
           return;
         }
         setAuth(data.usuario);
-        router.replace(getHomePath(data.usuario));
+        router.replace(getLoginRedirect() ?? getHomePath(data.usuario));
       } else {
         setErrors({ form: data.message || "Usuario o contraseña incorrectos." });
       }
@@ -87,6 +118,35 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestión Restaurante</h1>
             <p className="mt-2 text-slate-600">Gestión Centralizada SASI</p>
           </div>
+
+          <Button
+            type="button"
+            size="lg"
+            className="mb-5 w-full"
+            onClick={handleSso}
+            loading={ssoLoading}
+          >
+            <ShieldCheck size={18} aria-hidden="true" />
+            Iniciar sesión con SASI
+          </Button>
+
+          <div className="mb-5 flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              o usa tus credenciales
+            </span>
+            <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+          </div>
+
+          {ssoError && (
+            <div
+              role="alert"
+              className="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800"
+            >
+              <AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>{ssoError}</span>
+            </div>
+          )}
 
           {errors.form && (
             <div

@@ -5,16 +5,20 @@ import {
   createSessionToken,
   isSessionCookieSecure,
 } from "@/lib/auth/session";
-import { getHomePath, getRoleName, getSections, type AuthUserLike } from "@/lib/roles";
+import { buildLocalSession, getRestaurantUser } from "@/lib/auth/sasi-session";
 import { sasiLoginRequest } from "@/lib/sasi";
 import { logger } from "@/lib/logger";
 
-const SYSTEM_ID = 13;
-
 export async function POST(request: Request) {
-  const body = await request.json();
-
   try {
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { success: false, message: "Solicitud de inicio de sesión inválida." },
+        { status: 400 }
+      );
+    }
+
     const { data } = await sasiLoginRequest(body);
 
     if (!data.success) {
@@ -24,13 +28,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const usuario = data.usuario as AuthUserLike;
-
-    const tieneAcceso = usuario?.sistemas?.some(
-      (sistema) => sistema.id === SYSTEM_ID && (sistema as { activo?: boolean }).activo
-    );
-
-    if (!tieneAcceso) {
+    const usuario = getRestaurantUser(data);
+    if (!usuario) {
       return NextResponse.json(
         {
           success: false,
@@ -40,22 +39,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const home = getHomePath(usuario);
-    let sections = getSections(usuario);
-
-    // Fallback: deriva la sección desde la vista de inicio si SASI no trae menús.
-    if (sections.length === 0) {
-      const segment = home.split("/").filter(Boolean)[0];
-      if (segment) sections = [segment];
+    const sessionData = buildLocalSession(usuario, "direct");
+    if (!sessionData) {
+      return NextResponse.json(
+        { success: false, message: "No se pudo construir la sesión del usuario." },
+        { status: 200 }
+      );
     }
 
-    const sessionToken = await createSessionToken({
-      sub: String(usuario.id ?? ""),
-      nombre: usuario.nombreCompleto ?? "Usuario",
-      rol: getRoleName(usuario),
-      home,
-      sections,
-    });
+    const sessionToken = await createSessionToken(sessionData);
 
     const json = NextResponse.json({ success: true, usuario }, { status: 200 });
     json.cookies.set({

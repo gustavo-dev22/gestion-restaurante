@@ -53,13 +53,23 @@ export default function Sidebar({ open, onClose, session }: SidebarProps) {
 
   const confirmLogout = async () => {
     setLogoutOpen(false);
+    let ssoLogoutUrl: string | undefined;
     try {
-      await http.post("/api/auth/logout", undefined, { skipAuthRedirect: true });
+      const data = await http.post<{ success: boolean; ssoLogoutUrl?: string }>(
+        "/api/auth/logout",
+        undefined,
+        { skipAuthRedirect: true }
+      );
+      ssoLogoutUrl = data?.ssoLogoutUrl;
     } catch {
       // Aunque falle el cierre de sesión del servidor, limpiamos el estado local.
     }
     logout();
     onClose();
+    if (ssoLogoutUrl) {
+      window.location.assign(ssoLogoutUrl);
+      return;
+    }
     router.replace("/login");
   };
 

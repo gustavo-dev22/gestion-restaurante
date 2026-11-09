@@ -6,7 +6,7 @@ export interface AuthUserLike {
   sistemas?: SasiSistema[];
 }
 
-const PUBLIC_PATHS = ["/", "/login", "/reservar", "/cliente"];
+const PUBLIC_PATHS = ["/", "/login", "/sso-callback", "/reservar", "/cliente"];
 
 const PREFERRED_HOME = [
   "/admin/dashboard",

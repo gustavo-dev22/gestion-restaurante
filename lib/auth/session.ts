@@ -24,6 +24,8 @@ export interface SessionPayload {
   rol: string;
   home: string;
   sections: string[];
+  /** Origen de la sesión: login directo o SSO de SASI. */
+  authMethod?: "direct" | "sso";
   iat: number;
   exp: number;
 }
