@@ -18,6 +18,11 @@ export default async function AdminDashboard() {
   const ocupacion = stats.mesasTotal
     ? Math.round((stats.mesasOcupadas / stats.mesasTotal) * 100)
     : 0;
+  const progreso = Math.min(100, Math.max(0, ocupacion));
+  const radioAnillo = 52;
+  const circunferenciaAnillo = 2 * Math.PI * radioAnillo;
+  const desplazamientoAnillo =
+    circunferenciaAnillo * (1 - progreso / 100);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -83,13 +88,40 @@ export default async function AdminDashboard() {
             <div
               role="img"
               aria-label={`Ocupación del salón: ${ocupacion}%. ${stats.mesasLibres} mesas libres y ${stats.mesasOcupadas} ocupadas.`}
-              className="relative size-32"
+              className="relative size-32 shrink-0"
             >
-              <div className="flex size-full items-center justify-center rounded-full border-[12px] border-slate-100 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-slate-800">{ocupacion}%</p>
-                  <p className="text-xs font-bold uppercase text-slate-600">Ocupado</p>
-                </div>
+              <svg
+                viewBox="0 0 128 128"
+                className="size-32 -rotate-90"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="64"
+                  cy="64"
+                  r={radioAnillo}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="12"
+                  className="text-slate-100"
+                />
+                <circle
+                  cx="64"
+                  cy="64"
+                  r={radioAnillo}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  className="text-blue-600 transition-[stroke-dashoffset] duration-700 ease-out"
+                  style={{
+                    strokeDasharray: `${circunferenciaAnillo} ${circunferenciaAnillo}`,
+                    strokeDashoffset: desplazamientoAnillo,
+                  }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <p className="text-2xl font-bold text-slate-800">{ocupacion}%</p>
+                <p className="text-xs font-bold uppercase text-slate-600">Ocupado</p>
               </div>
             </div>
             <div className="w-full flex-1 space-y-4">
