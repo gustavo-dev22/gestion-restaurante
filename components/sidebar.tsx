@@ -1,16 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRef } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { SasiMenuObject, SasiSistema } from "@/lib/types";
 import type { SessionPayload } from "@/lib/auth/session";
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { resolveIcon } from "@/lib/icons";
-import { http } from "@/lib/http";
 import { isNavActive } from "@/lib/nav-active";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 
@@ -21,10 +19,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose, session }: SidebarProps) {
-  const { user, logout } = useAuthStore();
-  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
   const pathname = usePathname();
-  const [logoutOpen, setLogoutOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
   useFocusTrap(open, sidebarRef, onClose);
@@ -44,32 +40,6 @@ export default function Sidebar({ open, onClose, session }: SidebarProps) {
 
   const isActive = (url?: string, exact = false) =>
     isNavActive(pathname, url, exact);
-
-  const handleLogout = () => {
-    setLogoutOpen(true);
-  };
-
-  const confirmLogout = async () => {
-    setLogoutOpen(false);
-    let ssoLogoutUrl: string | undefined;
-    try {
-      const data = await http.post<{ success: boolean; ssoLogoutUrl?: string }>(
-        "/api/auth/logout",
-        undefined,
-        { skipAuthRedirect: true }
-      );
-      ssoLogoutUrl = data?.ssoLogoutUrl;
-    } catch {
-      // Aunque falle el cierre de sesión del servidor, limpiamos el estado local.
-    }
-    logout();
-    onClose();
-    if (ssoLogoutUrl) {
-      window.location.assign(ssoLogoutUrl);
-      return;
-    }
-    router.replace("/login");
-  };
 
   return (
     <>
@@ -187,27 +157,7 @@ export default function Sidebar({ open, onClose, session }: SidebarProps) {
           })}
         </nav>
 
-        <div className="mt-auto border-t border-slate-800 pt-4">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg p-2.5 text-red-400 transition-colors hover:bg-red-500/10"
-          >
-            <LogOut size={20} />
-            <span className="font-medium">Cerrar Sesión</span>
-          </button>
-        </div>
       </aside>
-
-      <ConfirmDialog
-        open={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        onConfirm={confirmLogout}
-        title="¿Cerrar sesión?"
-        description="Tendrás que ingresar tus credenciales nuevamente."
-        confirmLabel="Sí, salir"
-        variant="danger"
-      />
     </>
   );
 }
