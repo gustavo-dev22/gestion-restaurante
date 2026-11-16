@@ -133,6 +133,10 @@ export default function MenuDigitalPage({ params }: PageProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [llamado, setLlamado] = useState<Llamado | null>(null);
 
+  useEffect(() => {
+    if (mesaId) window.localStorage.setItem("gr-cliente-mesa-id", mesaId);
+  }, [mesaId]);
+
   const cargarProductos = useCallback(async () => {
     const data = await http.get<Producto[]>("/api/public/productos", { skipAuthRedirect: true });
     setProductos(Array.isArray(data) ? data : []);
