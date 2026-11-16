@@ -44,9 +44,14 @@ export default function Topbar({ onMenuClick, menuOpen = false, session }: Topba
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        <div className="hidden text-right sm:block">
-          <p className="max-w-[180px] truncate text-sm font-semibold text-slate-700">{nombre}</p>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+        <div className="hidden min-w-0 text-right sm:block">
+          <p
+            title={nombre}
+            className="max-w-xs whitespace-normal break-words text-sm font-semibold leading-tight text-slate-700"
+          >
+            {nombre}
+          </p>
+          <p className="mt-0.5 text-xs font-bold uppercase tracking-wide text-slate-600">
             {rolNombre}
           </p>
         </div>
