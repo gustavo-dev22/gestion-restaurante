@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   BellRing,
@@ -25,6 +26,49 @@ import { useVisibilityPolling } from "@/lib/useVisibilityPolling";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+}
+
+function ChangeTableControl({
+  currentMesa,
+  hasOrder,
+}: {
+  currentMesa?: string;
+  hasOrder: boolean;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  const cambiarMesa = () => {
+    window.localStorage.removeItem("gr-cliente-mesa-id");
+    setOpen(false);
+    router.push("/cliente/menu");
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed right-3 top-3 z-40 inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3 text-xs font-bold text-slate-700 shadow-lg backdrop-blur transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <RefreshCw size={15} aria-hidden="true" />
+        Cambiar mesa
+      </button>
+      <ConfirmDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onConfirm={cambiarMesa}
+        title="¿Cambiar de mesa?"
+        description={
+          hasOrder
+            ? `Tu pedido actual seguirá registrado en la mesa ${currentMesa || "actual"}. Si cambias, podrás volver a esa mesa desde la lista.`
+            : "Selecciona otra mesa para continuar. Se quitará la mesa guardada en este dispositivo."
+        }
+        confirmLabel="Sí, cambiar"
+        variant="warning"
+      />
+    </>
+  );
 }
 
 interface Producto {
@@ -355,6 +399,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-4">
+        <ChangeTableControl currentMesa={numeroMesa} hasOrder={false} />
         <div className="mx-auto w-full max-w-3xl">
           <Skeleton className="mb-4 h-28 w-full rounded-2xl" />
           <Skeleton className="mb-4 h-10 w-56" />
@@ -379,6 +424,10 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
     return (
       <div className="min-h-screen bg-slate-50 pb-10">
+        <ChangeTableControl
+          currentMesa={numeroMesa || pedidoActivo.mesa.numero}
+          hasOrder
+        />
         <LlamadoStatus llamado={llamado} />
         <div className="rounded-b-[2.5rem] bg-slate-900 p-8 text-white shadow-xl">
           <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Mesa</p>
@@ -458,6 +507,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
   if (estadoMesa !== "Libre") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white p-8 text-center">
+        <ChangeTableControl currentMesa={numeroMesa} hasOrder={false} />
         <LlamadoStatus llamado={llamado} />
         <div className="mb-6 rounded-full bg-rose-100 p-6">
           <AlertCircle size={60} className="text-rose-600" aria-hidden="true" />
@@ -489,6 +539,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
   // Menú digital
   return (
     <div className="min-h-screen bg-slate-50 pb-36">
+      <ChangeTableControl currentMesa={numeroMesa} hasOrder={false} />
       <LlamadoStatus llamado={llamado} />
       <div className="mb-6 rounded-b-[2.5rem] bg-slate-900 p-8 text-white shadow-xl">
         <h1 className="text-3xl font-black italic tracking-tighter">CARTA DIGITAL</h1>
