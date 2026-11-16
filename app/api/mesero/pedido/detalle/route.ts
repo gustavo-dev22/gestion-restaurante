@@ -4,6 +4,7 @@ import { getSessionFromRequest } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 import { revalidateTag } from "next/cache";
 import { withIdempotency } from "@/lib/idempotency";
+import { actorFromSession, auditLogSafe, getAuditContext } from "@/lib/audit";
 
 export async function POST(request: Request) {
   return withIdempotency(request, async () => {
@@ -126,6 +127,18 @@ export async function POST(request: Request) {
         },
       });
     });
+
+    await auditLogSafe(
+      {
+        actor: actorFromSession(session),
+        accion: "order.items.add",
+        entidad: "Pedido",
+        entidadId: pedidoId,
+        despues: { pedidoId, items: itemsNormalizados },
+        motivo: "Platos agregados a la comanda",
+      },
+      getAuditContext(request)
+    );
 
     revalidateTag("reportes", "max");
     revalidateTag("dashboard", "max");

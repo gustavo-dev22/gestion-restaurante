@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionFromRequest } from '@/lib/auth/session';
+import { actorFromSession, auditLogSafe, getAuditContext } from '@/lib/audit';
+import { authorizeLocal } from '@/lib/rbac';
 import { expireStaleQrOrders } from '@/lib/qr-orders';
 import { logger } from '@/lib/logger';
 
 export async function PATCH(request: Request) {
-  try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-    }
+  const session = await authorizeLocal(request, "orders:accept");
+  if (session instanceof NextResponse) return session;
 
+  try {
     const { pedidoId } = await request.json();
     const id = Number(pedidoId);
 
@@ -70,6 +69,19 @@ export async function PATCH(request: Request) {
         data: { usuarioId: session.sub, nombreMesero: session.nombre },
       });
     }
+
+    await auditLogSafe(
+      {
+        actor: actorFromSession(session),
+        accion: "order.confirm",
+        entidad: "Pedido",
+        entidadId: id,
+        antes: { id, estado: "Por Confirmar" },
+        despues: pedidoActualizado,
+        motivo: "Pedido QR asignado y confirmado",
+      },
+      getAuditContext(request)
+    );
 
     return NextResponse.json(pedidoActualizado);
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   type PagoCajaDto,
 } from "@/lib/caja-types";
 import type { SessionPayload } from "@/lib/auth/session";
+import { actorFromSession, auditLog, type AuditContext } from "@/lib/audit";
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
@@ -237,7 +238,8 @@ export interface AplicarDescuentoInput {
 export async function aplicarDescuento(
   actor: SessionPayload,
   pedidoId: number,
-  input: AplicarDescuentoInput
+  input: AplicarDescuentoInput,
+  audit?: AuditContext
 ): Promise<void> {
   const motivo = String(input.motivo ?? "").trim().slice(0, 300);
   if (motivo.length < 3) {
@@ -268,6 +270,14 @@ export async function aplicarDescuento(
       if (pedido.descuento) {
         throw new CajaError(409, "DESCUENTO_EXISTENTE", "El pedido ya tiene un descuento.");
       }
+
+      const pedidoAntes = {
+        subtotal: Number(pedido.subtotal),
+        descuentoTotal: Number(pedido.descuentoTotal),
+        total: Number(pedido.total),
+        saldo: Number(pedido.saldo),
+        estadoPago: pedido.estadoPago,
+      };
 
       const subtotal = roundMoney(
         pedido.detalles.reduce(
@@ -327,8 +337,9 @@ export async function aplicarDescuento(
         throw new CajaError(400, "DESCUENTO_EXCESIVO", "El descuento no puede cubrir todo el pedido.");
       }
 
+      let descuentoId: number;
       try {
-        await tx.descuento.create({
+        const descuento = await tx.descuento.create({
           data: {
             pedidoId,
             tipo,
@@ -340,6 +351,7 @@ export async function aplicarDescuento(
             autorizadoPorNombre: actor.nombre,
           },
         });
+        descuentoId = descuento.id;
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
           throw new CajaError(409, "DESCUENTO_EXISTENTE", "El pedido ya tiene un descuento.");
@@ -362,6 +374,33 @@ export async function aplicarDescuento(
           estadoPago: saldo <= 0 ? "Pagado" : totalPagado > 0 ? "Parcial" : "Pendiente",
         },
       });
+
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "discount.apply",
+            entidad: "Descuento",
+            entidadId: descuentoId,
+            antes: pedidoAntes,
+            despues: {
+              descuentoId,
+              pedidoId,
+              tipo,
+              valor,
+              montoAplicado: monto,
+              cuponId,
+              subtotal,
+              total,
+              saldo,
+              estadoPago: saldo <= 0 ? "Pagado" : totalPagado > 0 ? "Parcial" : "Pendiente",
+            },
+            motivo,
+          },
+          audit,
+          tx
+        );
+      }
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );
@@ -378,6 +417,7 @@ export interface RegistrarDevolucionInput {
   propina?: unknown;
   motivo?: unknown;
   items?: unknown;
+  audit?: AuditContext;
 }
 
 export async function registrarDevolucion(
@@ -432,6 +472,15 @@ export async function registrarDevolucion(
       if (pago.estado === "Anulado" || pago.estado === "Reembolsado") {
         throw new CajaError(409, "PAGO_REEMBOLSADO", "El pago ya fue anulado o reembolsado.");
       }
+
+      const pagoAntes = {
+        id: pago.id,
+        pedidoId: pago.pedidoId,
+        metodo: pago.metodo,
+        monto: Number(pago.monto),
+        propina: Number(pago.propina),
+        estado: pago.estado,
+      };
 
       const devolucionesPrevias = await tx.devolucion.findMany({
         where: { pagoId, estado: { not: "Anulada" } },
@@ -615,6 +664,33 @@ export async function registrarDevolucion(
           usuarioNombre: actor.nombre,
         },
       });
+
+      if (input.audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "payment.refund",
+            entidad: "Devolucion",
+            entidadId: devolucion.id,
+            antes: pagoAntes,
+            despues: {
+              devolucionId: devolucion.id,
+              pedidoId,
+              pagoId,
+              metodo,
+              monto,
+              propina,
+              items,
+              reversionStock: items.length > 0,
+              pagoEstado: pagoCompleto ? "Reembolsado" : pago.estado,
+            },
+            motivo,
+            turnoId: turno.id,
+          },
+          input.audit,
+          tx
+        );
+      }
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );
@@ -624,7 +700,8 @@ export async function anularPago(
   actor: SessionPayload,
   pedidoId: number,
   pagoId: number,
-  motivo: unknown
+  motivo: unknown,
+  audit?: AuditContext
 ): Promise<void> {
   const razon = String(motivo ?? "").trim().slice(0, 500);
   if (razon.length < 3) {
@@ -662,6 +739,22 @@ export async function anularPago(
       if (pago.estado === "Anulado" || pago.estado === "Reembolsado") {
         throw new CajaError(409, "PAGO_YA_ANULADO", "El pago ya fue anulado o reembolsado.");
       }
+
+      const pagoAntes = {
+        id: pago.id,
+        pedidoId: pago.pedidoId,
+        turnoId: pago.turnoId,
+        metodo: pago.metodo,
+        monto: Number(pago.monto),
+        propina: Number(pago.propina),
+        estado: pago.estado,
+      };
+      const pedidoAntes = {
+        total: Number(pedido.total),
+        totalPagado: Number(pedido.totalPagado),
+        saldo: Number(pedido.saldo),
+        estadoPago: pedido.estadoPago,
+      };
 
       await tx.pago.update({
         where: { id: pago.id },
@@ -728,6 +821,31 @@ export async function anularPago(
           usuarioNombre: actor.nombre,
         },
       });
+
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "payment.void",
+            entidad: "Pago",
+            entidadId: pago.id,
+            antes: { pago: pagoAntes, pedido: pedidoAntes },
+            despues: {
+              pagoId: pago.id,
+              pedidoId,
+              estado: "Anulado",
+              total,
+              totalPagado,
+              saldo,
+              estadoPago: pagado ? "Pagado" : totalPagado > 0 ? "Parcial" : "Pendiente",
+            },
+            motivo: razon,
+            turnoId: turno.id,
+          },
+          audit,
+          tx
+        );
+      }
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );

@@ -7,6 +7,7 @@ import {
   roundMoney,
 } from "@/lib/caja-types";
 import type { SessionPayload } from "@/lib/auth/session";
+import { actorFromSession, auditLog, type AuditContext } from "@/lib/audit";
 
 export interface PagoAplicacionInput {
   pedidoDetalleId: number;
@@ -27,6 +28,7 @@ export interface RegistrarPagoInput {
   aplicaciones?: PagoAplicacionInput[];
   allowAnyOrder?: boolean;
   fullBalanceOnly?: boolean;
+  audit?: AuditContext;
 }
 
 export interface RegistrarPagoResult {
@@ -55,6 +57,7 @@ export async function registrarPago({
   aplicaciones,
   allowAnyOrder = false,
   fullBalanceOnly = false,
+  audit,
 }: RegistrarPagoInput): Promise<RegistrarPagoResult> {
   if (!Number.isInteger(pedidoId) || pedidoId <= 0) {
     throw new CajaError(400, "PEDIDO_INVALIDO", "El pedido es inválido.");
@@ -155,6 +158,14 @@ export async function registrarPago({
       const totalAntes = roundMoney(subtotal - descuentoTotal + propinaTotal);
       const totalPagadoAntes = Number(pedido.totalPagado);
       const saldoAntes = roundMoney(totalAntes - totalPagadoAntes);
+      const pedidoAntes = {
+        estado: pedido.estado,
+        estadoPago: pedido.estadoPago,
+        total: totalAntes,
+        totalPagado: totalPagadoAntes,
+        saldo: saldoAntes,
+        propinaTotal,
+      };
 
       if (saldoAntes <= 0) {
         throw new CajaError(409, "PEDIDO_YA_PAGADO", "El pedido ya está pagado.");
@@ -402,6 +413,35 @@ export async function registrarPago({
             estado: "Emitido",
           },
         });
+      }
+
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "payment.create",
+            entidad: "Pago",
+            entidadId: pago.id,
+            antes: pedidoAntes,
+            despues: {
+              pagoId: pago.id,
+              pedidoId,
+              metodo,
+              monto: montoPago,
+              propina: propinaInput,
+              total: nuevoTotal,
+              totalPagado: nuevoTotalPagado,
+              saldo: saldoFinal,
+              estadoPago: pagado ? "Pagado" : "Parcial",
+              cambio,
+              aplicaciones: aplicacionesCalculadas,
+            },
+            motivo: `Pago registrado (${metodo})`,
+            turnoId: turno.id,
+          },
+          audit,
+          tx
+        );
       }
 
       return {

@@ -2,9 +2,11 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle,
+  FileText,
   Layers,
   LayoutGrid,
   Package,
+  ShieldCheck,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +16,7 @@ import { getDashboardStatsCached } from "@/lib/reports";
 import { getServerSession } from "@/lib/auth/server-session";
 import { CASH_PATHS, hasCashPermission } from "@/lib/auth/cash-permissions";
 import { getCajaDashboard } from "@/lib/caja";
+import { hasLocalPermission } from "@/lib/rbac";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +26,12 @@ export default async function AdminDashboard() {
   const session = await getServerSession();
   const puedeVerCaja = session
     ? hasCashPermission(session, CASH_PATHS.turno, "LISTAR")
+    : false;
+  const puedeGestionarRoles = session
+    ? await hasLocalPermission(session, "roles:manage")
+    : false;
+  const puedeVerAuditoria = session
+    ? await hasLocalPermission(session, "audit:read")
     : false;
   const caja = puedeVerCaja ? await getCajaDashboard() : null;
   const ocupacion = stats.mesasTotal
@@ -259,6 +268,36 @@ export default async function AdminDashboard() {
             </div>
             <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
           </Link>
+
+          {puedeVerAuditoria && (
+            <Link
+              href="/auditoria"
+              className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-purple-500 hover:shadow-md"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-purple-50 p-2 text-purple-600 transition-colors group-hover:bg-purple-600 group-hover:text-white">
+                  <FileText size={20} aria-hidden="true" />
+                </div>
+                <span className="font-semibold text-slate-700">Registro de Auditoría</span>
+              </div>
+              <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
+            </Link>
+          )}
+
+          {puedeGestionarRoles && (
+            <Link
+              href="/admin/roles"
+              className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-amber-500 hover:shadow-md"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-amber-50 p-2 text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
+                  <ShieldCheck size={20} aria-hidden="true" />
+                </div>
+                <span className="font-semibold text-slate-700">Roles y Permisos</span>
+              </div>
+              <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
+            </Link>
+          )}
         </div>
       </div>
     </div>

@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { getSessionFromRequest } from '@/lib/auth/session';
+import { actorFromSession, auditLogSafe, getAuditContext } from '@/lib/audit';
+import { authorizeLocal } from '@/lib/rbac';
 
 export async function DELETE(request: Request) {
-  try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-    }
+  const session = await authorizeLocal(request, "orders:cancel");
+  if (session instanceof NextResponse) return session;
 
+  try {
     const { searchParams } = new URL(request.url);
     const pedidoId = Number(searchParams.get('id'));
 
@@ -45,6 +44,19 @@ export async function DELETE(request: Request) {
         data: { estado: 'Libre' },
       }),
     ]);
+
+    await auditLogSafe(
+      {
+        actor: actorFromSession(session),
+        accion: "order.cancel",
+        entidad: "Pedido",
+        entidadId: pedidoId,
+        antes: pedido,
+        despues: null,
+        motivo: "Pedido sin consumo cancelado y mesa liberada",
+      },
+      getAuditContext(request)
+    );
 
     revalidateTag('dashboard', "max");
 

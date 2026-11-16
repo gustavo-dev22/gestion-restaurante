@@ -6,18 +6,33 @@ interface ServerPaginationProps {
   page: number;
   totalPages: number;
   basePath: string;
+  query?: Record<string, string | undefined>;
   className?: string;
+}
+
+function pageHref(
+  basePath: string,
+  page: number,
+  query?: Record<string, string | undefined>
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value) params.set(key, value);
+  }
+  params.set("page", String(page));
+  return `${basePath}?${params.toString()}`;
 }
 
 export function ServerPagination({
   page,
   totalPages,
   basePath,
+  query,
   className,
 }: ServerPaginationProps) {
   const current = Math.min(Math.max(page, 1), Math.max(totalPages, 1));
-  const prevHref = `${basePath}?page=${Math.max(current - 1, 1)}`;
-  const nextHref = `${basePath}?page=${Math.min(current + 1, totalPages)}`;
+  const prevHref = pageHref(basePath, Math.max(current - 1, 1), query);
+  const nextHref = pageHref(basePath, Math.min(current + 1, totalPages), query);
 
   const buttonClass =
     "inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";

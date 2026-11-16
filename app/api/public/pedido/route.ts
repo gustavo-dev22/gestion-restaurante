@@ -6,6 +6,7 @@ import { calcularTotalPedido } from '@/lib/order-math';
 import { logger } from '@/lib/logger';
 import { revalidateTag } from 'next/cache';
 import { withIdempotency } from '@/lib/idempotency';
+import { auditLogSafe, getAuditContext } from '@/lib/audit';
 
 const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
 
@@ -160,6 +161,17 @@ export async function POST(request: Request) {
         include: { detalles: true },
       });
     });
+
+    await auditLogSafe(
+      {
+        accion: "order.create",
+        entidad: "Pedido",
+        entidadId: resultado.id,
+        despues: resultado,
+        motivo: "Pedido QR creado por el cliente",
+      },
+      getAuditContext(request)
+    );
 
     revalidateTag("reportes", "max");
     revalidateTag("dashboard", "max");

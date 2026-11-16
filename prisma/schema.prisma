@@ -21,19 +21,19 @@ model Categoria {
 }
 
 model Producto {
-  id             Int             @id(map: "PK__Producto__3213E83F276ADAA2") @default(autoincrement())
-  nombre         String          @db.NVarChar(150)
-  descripcion    String?         @db.NVarChar(Max)
-  precio         Decimal         @db.Decimal(10, 2)
-  imagen_url     String?         @db.NVarChar(Max)
-  stock          Int?            @default(0, map: "DF__Productos__stock__3B75D760")
-  categoriaId    Int
-  activo         Boolean?        @default(true, map: "DF__Productos__activ__3C69FB99")
-  fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
-  detallesPedido PedidoDetalle[]
-  movimientosStock MovimientoStock[]
+  id                 Int                 @id(map: "PK__Producto__3213E83F276ADAA2") @default(autoincrement())
+  nombre             String              @db.NVarChar(150)
+  descripcion        String?             @db.NVarChar(Max)
+  precio             Decimal             @db.Decimal(10, 2)
+  imagen_url         String?             @db.NVarChar(Max)
+  stock              Int?                @default(0, map: "DF__Productos__stock__3B75D760")
+  categoriaId        Int
+  activo             Boolean?            @default(true, map: "DF__Productos__activ__3C69FB99")
+  fecha_creacion     DateTime?           @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
+  detallesPedido     PedidoDetalle[]
+  movimientosStock   MovimientoStock[]
   devolucionDetalles DevolucionDetalle[]
-  categoria      Categoria       @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
+  categoria          Categoria           @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
 
   @@map("Productos")
 }
@@ -79,16 +79,16 @@ model Pedido {
 }
 
 model PedidoDetalle {
-  id              Int      @id(map: "PK__Pedido_D__3213E83F64EC93C8") @default(autoincrement())
-  pedidoId        Int
-  productoId      Int
-  cantidad        Int
-  precio_unitario Decimal  @db.Decimal(10, 2)
+  id                 Int                 @id(map: "PK__Pedido_D__3213E83F64EC93C8") @default(autoincrement())
+  pedidoId           Int
+  productoId         Int
+  cantidad           Int
+  precio_unitario    Decimal             @db.Decimal(10, 2)
   // subtotal es una columna calculada en SQL Server; no se gestiona desde Prisma.
-  estado          String?  @db.VarChar(20)
-  pedido          Pedido   @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
-  producto        Producto @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")
-  aplicaciones    PagoAplicacion[]
+  estado             String?             @db.VarChar(20)
+  pedido             Pedido              @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
+  producto           Producto            @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")
+  aplicaciones       PagoAplicacion[]
   devolucionDetalles DevolucionDetalle[]
 
   @@map("Pedido_Detalles")
@@ -109,73 +109,73 @@ model Reserva {
 }
 
 model TurnoCaja {
-  id               Int       @id @default(autoincrement())
-  cajeroId         String    @db.UniqueIdentifier
-  cajeroNombre     String    @db.NVarChar(150)
-  estado           String    @default("Abierto") @db.NVarChar(20)
-  abiertoEn        DateTime  @default(now()) @db.DateTime2
-  cerradoEn        DateTime? @db.DateTime2
-  fondoInicial     Decimal   @default(0) @db.Decimal(10, 2)
-  totalEfectivo    Decimal   @default(0) @db.Decimal(10, 2)
-  totalTarjeta     Decimal   @default(0) @db.Decimal(10, 2)
-  totalBilleteras  Decimal   @default(0) @db.Decimal(10, 2)
-  totalOtros       Decimal   @default(0) @db.Decimal(10, 2)
-  totalVentas      Decimal   @default(0) @db.Decimal(10, 2)
-  totalPropinas    Decimal   @default(0) @db.Decimal(10, 2)
-  totalDescuentos  Decimal   @default(0) @db.Decimal(10, 2)
-  totalDevoluciones Decimal  @default(0) @db.Decimal(10, 2)
-  totalCobrado     Decimal   @default(0) @db.Decimal(10, 2)
-  totalIngresos    Decimal   @default(0) @db.Decimal(10, 2)
-  totalRetiros     Decimal   @default(0) @db.Decimal(10, 2)
-  totalGastos      Decimal   @default(0) @db.Decimal(10, 2)
-  efectivoEsperado Decimal?  @db.Decimal(10, 2)
-  efectivoContado  Decimal?  @db.Decimal(10, 2)
-  diferencia       Decimal?  @db.Decimal(10, 2)
-  justificacion    String?   @db.NVarChar(500)
-  cerradoPorId     String?   @db.UniqueIdentifier
-  cerradoPorNombre String?   @db.NVarChar(150)
-  createdAt        DateTime  @default(now()) @db.DateTime2
-  updatedAt        DateTime  @updatedAt @db.DateTime2
-  pagos            Pago[]
-  movimientos      MovimientoCaja[]
-  eventos          CajaEvento[]
-  devoluciones     Devolucion[]
+  id                Int              @id @default(autoincrement())
+  cajeroId          String           @db.UniqueIdentifier
+  cajeroNombre      String           @db.NVarChar(150)
+  estado            String           @default("Abierto") @db.NVarChar(20)
+  abiertoEn         DateTime         @default(now()) @db.DateTime2
+  cerradoEn         DateTime?        @db.DateTime2
+  fondoInicial      Decimal          @default(0) @db.Decimal(10, 2)
+  totalEfectivo     Decimal          @default(0) @db.Decimal(10, 2)
+  totalTarjeta      Decimal          @default(0) @db.Decimal(10, 2)
+  totalBilleteras   Decimal          @default(0) @db.Decimal(10, 2)
+  totalOtros        Decimal          @default(0) @db.Decimal(10, 2)
+  totalVentas       Decimal          @default(0) @db.Decimal(10, 2)
+  totalPropinas     Decimal          @default(0) @db.Decimal(10, 2)
+  totalDescuentos   Decimal          @default(0) @db.Decimal(10, 2)
+  totalDevoluciones Decimal          @default(0) @db.Decimal(10, 2)
+  totalCobrado      Decimal          @default(0) @db.Decimal(10, 2)
+  totalIngresos     Decimal          @default(0) @db.Decimal(10, 2)
+  totalRetiros      Decimal          @default(0) @db.Decimal(10, 2)
+  totalGastos       Decimal          @default(0) @db.Decimal(10, 2)
+  efectivoEsperado  Decimal?         @db.Decimal(10, 2)
+  efectivoContado   Decimal?         @db.Decimal(10, 2)
+  diferencia        Decimal?         @db.Decimal(10, 2)
+  justificacion     String?          @db.NVarChar(500)
+  cerradoPorId      String?          @db.UniqueIdentifier
+  cerradoPorNombre  String?          @db.NVarChar(150)
+  createdAt         DateTime         @default(now()) @db.DateTime2
+  updatedAt         DateTime         @updatedAt @db.DateTime2
+  pagos             Pago[]
+  movimientos       MovimientoCaja[]
+  eventos           CajaEvento[]
+  devoluciones      Devolucion[]
 
   @@index([estado, abiertoEn])
   @@map("TurnosCaja")
 }
 
 model Pago {
-  id              Int        @id @default(autoincrement())
-  pedidoId        Int
-  turnoId         Int?
-  cajeroId        String?    @db.UniqueIdentifier
-  cajeroNombre    String?    @db.NVarChar(150)
-  metodo          String     @db.NVarChar(30)
-  monto           Decimal    @db.Decimal(10, 2)
-  propina         Decimal    @default(0) @db.Decimal(10, 2)
-  descuento       Decimal    @default(0) @db.Decimal(10, 2)
-  referencia      String?    @db.NVarChar(100)
-  codigoAutorizacion String? @db.NVarChar(100)
-  terminal        String?    @db.NVarChar(50)
-  montoRecibido   Decimal?   @db.Decimal(10, 2)
-  cambio          Decimal?   @db.Decimal(10, 2)
-  etiqueta        String?    @db.NVarChar(50)
-  autorizadoPorId String?    @db.UniqueIdentifier
-  autorizadoPorNombre String? @db.NVarChar(150)
-  anuladoPorId    String?    @db.UniqueIdentifier
-  anuladoPorNombre String?   @db.NVarChar(150)
-  anuladoEn       DateTime?  @db.DateTime2
-  motivoAnulacion String?    @db.NVarChar(500)
-  estado          String     @default("Registrado") @db.NVarChar(20)
-  origen          String     @default("POS") @db.NVarChar(20)
-  conciliadoEn    DateTime?  @db.DateTime2
-  conciliadoPorId String?    @db.UniqueIdentifier
-  createdAt       DateTime   @default(now()) @db.DateTime2
-  pedido          Pedido     @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_Pedidos")
-  turno           TurnoCaja? @relation(fields: [turnoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_TurnosCaja")
-  aplicaciones    PagoAplicacion[]
-  devoluciones    Devolucion[]
+  id                  Int              @id @default(autoincrement())
+  pedidoId            Int
+  turnoId             Int?
+  cajeroId            String?          @db.UniqueIdentifier
+  cajeroNombre        String?          @db.NVarChar(150)
+  metodo              String           @db.NVarChar(30)
+  monto               Decimal          @db.Decimal(10, 2)
+  propina             Decimal          @default(0) @db.Decimal(10, 2)
+  descuento           Decimal          @default(0) @db.Decimal(10, 2)
+  referencia          String?          @db.NVarChar(100)
+  codigoAutorizacion  String?          @db.NVarChar(100)
+  terminal            String?          @db.NVarChar(50)
+  montoRecibido       Decimal?         @db.Decimal(10, 2)
+  cambio              Decimal?         @db.Decimal(10, 2)
+  etiqueta            String?          @db.NVarChar(50)
+  autorizadoPorId     String?          @db.UniqueIdentifier
+  autorizadoPorNombre String?          @db.NVarChar(150)
+  anuladoPorId        String?          @db.UniqueIdentifier
+  anuladoPorNombre    String?          @db.NVarChar(150)
+  anuladoEn           DateTime?        @db.DateTime2
+  motivoAnulacion     String?          @db.NVarChar(500)
+  estado              String           @default("Registrado") @db.NVarChar(20)
+  origen              String           @default("POS") @db.NVarChar(20)
+  conciliadoEn        DateTime?        @db.DateTime2
+  conciliadoPorId     String?          @db.UniqueIdentifier
+  createdAt           DateTime         @default(now()) @db.DateTime2
+  pedido              Pedido           @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_Pedidos")
+  turno               TurnoCaja?       @relation(fields: [turnoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_TurnosCaja")
+  aplicaciones        PagoAplicacion[]
+  devoluciones        Devolucion[]
 
   @@index([turnoId, estado])
   @@index([pedidoId])
@@ -246,17 +246,17 @@ model Descuento {
 }
 
 model Cupon {
-  id           Int         @id @default(autoincrement())
-  codigo       String      @unique @db.NVarChar(50)
-  tipo         String      @db.NVarChar(20)
-  valor        Decimal     @db.Decimal(10, 2)
-  validoDesde  DateTime?   @db.DateTime2
-  validoHasta  DateTime?   @db.DateTime2
-  usosMaximos  Int?
-  usos         Int         @default(0)
-  activo       Boolean     @default(true)
-  createdAt    DateTime    @default(now()) @db.DateTime2
-  descuentos   Descuento[]
+  id          Int         @id @default(autoincrement())
+  codigo      String      @unique @db.NVarChar(50)
+  tipo        String      @db.NVarChar(20)
+  valor       Decimal     @db.Decimal(10, 2)
+  validoDesde DateTime?   @db.DateTime2
+  validoHasta DateTime?   @db.DateTime2
+  usosMaximos Int?
+  usos        Int         @default(0)
+  activo      Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @db.DateTime2
+  descuentos  Descuento[]
 
   @@map("Cupones")
 }
@@ -291,15 +291,15 @@ model Devolucion {
 }
 
 model DevolucionDetalle {
-  id              Int        @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   devolucionId    Int
   pedidoDetalleId Int?
   productoId      Int
   cantidad        Int
-  monto           Decimal?   @db.Decimal(10, 2)
-  devolucion      Devolucion @relation(fields: [devolucionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Devoluciones")
+  monto           Decimal?       @db.Decimal(10, 2)
+  devolucion      Devolucion     @relation(fields: [devolucionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Devoluciones")
   pedidoDetalle   PedidoDetalle? @relation(fields: [pedidoDetalleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Detalles")
-  producto        Producto   @relation(fields: [productoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Productos")
+  producto        Producto       @relation(fields: [productoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Productos")
 
   @@index([devolucionId])
   @@index([productoId])
@@ -323,13 +323,13 @@ model MovimientoStock {
 }
 
 model Comprobante {
-  id         Int      @id @default(autoincrement())
-  pedidoId   Int      @unique
-  tipo       String   @default("Ticket") @db.NVarChar(20)
-  monto      Decimal  @db.Decimal(10, 2)
-  estado     String   @default("Emitido") @db.NVarChar(20)
-  createdAt  DateTime @default(now()) @db.DateTime2
-  pedido     Pedido   @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Comprobantes_Pedidos")
+  id        Int      @id @default(autoincrement())
+  pedidoId  Int      @unique
+  tipo      String   @default("Ticket") @db.NVarChar(20)
+  monto     Decimal  @db.Decimal(10, 2)
+  estado    String   @default("Emitido") @db.NVarChar(20)
+  createdAt DateTime @default(now()) @db.DateTime2
+  pedido    Pedido   @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Comprobantes_Pedidos")
 
   @@map("Comprobantes")
 }
@@ -344,4 +344,109 @@ model IdempotencyKey {
 
   @@index([expiresAt])
   @@map("Idempotency_Keys")
+}
+
+model Auditoria {
+  id          Int      @id @default(autoincrement())
+  actorId     String?  @db.NVarChar(100)
+  actorNombre String?  @db.NVarChar(150)
+  actorRol    String?  @db.NVarChar(100)
+  ip          String?  @db.NVarChar(64)
+  userAgent   String?  @db.NVarChar(500)
+  accion      String   @db.NVarChar(100)
+  entidad     String?  @db.NVarChar(50)
+  entidadId   String?  @db.NVarChar(100)
+  antes       String?  @db.NVarChar(Max)
+  despues     String?  @db.NVarChar(Max)
+  motivo      String?  @db.NVarChar(500)
+  requestId   String?  @db.NVarChar(100)
+  turnoId     Int?
+  createdAt   DateTime @default(now()) @db.DateTime2
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([accion, createdAt])
+  @@index([entidad, entidadId])
+  @@index([turnoId])
+  @@map("Auditoria")
+}
+
+model UsuarioApp {
+  id             Int              @id @default(autoincrement())
+  sasiSub        String           @unique @db.NVarChar(100)
+  nombre         String           @db.NVarChar(150)
+  email          String?          @db.NVarChar(200)
+  rolSasi        String?          @db.NVarChar(100)
+  activo         Boolean          @default(true)
+  ultimoAccesoEn DateTime?        @db.DateTime2
+  createdAt      DateTime         @default(now()) @db.DateTime2
+  updatedAt      DateTime         @updatedAt @db.DateTime2
+  roles          UsuarioRol[]
+  permisos       UsuarioPermiso[]
+
+  @@index([activo])
+  @@map("UsuariosApp")
+}
+
+model RolLocal {
+  id          Int          @id @default(autoincrement())
+  codigo      String       @unique @db.NVarChar(50)
+  nombre      String       @db.NVarChar(100)
+  descripcion String?      @db.NVarChar(300)
+  esSistema   Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.DateTime2
+  updatedAt   DateTime     @updatedAt @db.DateTime2
+  permisos    RolPermiso[]
+  usuarios    UsuarioRol[]
+
+  @@map("RolesLocal")
+}
+
+model Permiso {
+  id          Int              @id @default(autoincrement())
+  codigo      String           @unique @db.NVarChar(100)
+  nombre      String           @db.NVarChar(150)
+  descripcion String?          @db.NVarChar(300)
+  grupo       String           @db.NVarChar(50)
+  createdAt   DateTime         @default(now()) @db.DateTime2
+  updatedAt   DateTime         @updatedAt @db.DateTime2
+  roles       RolPermiso[]
+  usuarios    UsuarioPermiso[]
+
+  @@index([grupo])
+  @@map("Permisos")
+}
+
+model RolPermiso {
+  rolId     Int
+  permisoId Int
+  rol       RolLocal @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso   Permiso  @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@id([rolId, permisoId])
+  @@index([permisoId])
+  @@map("RolPermisos")
+}
+
+model UsuarioRol {
+  usuarioId Int
+  rolId     Int
+  usuario   UsuarioApp @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  rol       RolLocal   @relation(fields: [rolId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, rolId])
+  @@index([rolId])
+  @@map("UsuarioRoles")
+}
+
+model UsuarioPermiso {
+  usuarioId Int
+  permisoId Int
+  permitido Boolean    @default(true)
+  usuario   UsuarioApp @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  permiso   Permiso    @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, permisoId])
+  @@index([permisoId])
+  @@map("UsuarioPermisos")
 }

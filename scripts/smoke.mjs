@@ -29,6 +29,8 @@ loadEnv(".env.local");
 const BASE_URL = process.env.SMOKE_BASE_URL || "http://localhost:4206";
 const ADMIN_ID = "00000000-0000-0000-0000-000000000001";
 const MESERO_ID = "00000000-0000-0000-0000-000000000002";
+const AUDITOR_ID = "00000000-0000-0000-0000-000000000003";
+const SUPERVISOR_ID = "00000000-0000-0000-0000-000000000004";
 
 if (!process.env.AUTH_SECRET) {
   console.error("Falta AUTH_SECRET en el entorno.");
@@ -115,6 +117,20 @@ async function main() {
     home: "/caja",
     sections: ["caja"],
   });
+  const auditorToken = await createToken({
+    sub: AUDITOR_ID,
+    nombre: "Smoke Auditor",
+    rol: "Auditor",
+    home: "/auditoria",
+    sections: ["caja"],
+  });
+  const supervisorToken = await createToken({
+    sub: SUPERVISOR_ID,
+    nombre: "Smoke Supervisor",
+    rol: "Supervisor",
+    home: "/caja",
+    sections: ["caja"],
+  });
 
   let mesaId = null;
   let productoId = null;
@@ -177,6 +193,13 @@ async function main() {
       body: { tipo: "Gasto", monto: 10, motivo: "Gasto de prueba smoke" },
     });
     check("Movimiento de caja registrado (200)", movimiento.status === 200);
+
+    const auditorCierre = await api(`/api/caja/turnos/${turnoId}/cerrar`, {
+      method: "POST",
+      token: auditorToken,
+      body: { efectivoContado: 0 },
+    });
+    check("Auditor sin caja:close recibe 403", auditorCierre.status === 403);
 
     // 4) Stock insuficiente
     const productos = (await api("/api/public/productos")).data ?? [];
@@ -530,6 +553,34 @@ async function main() {
         Number(reporte.data?.turno?.totalPropinas) > 0 &&
         Number(reporte.data?.turno?.totalDescuentos) > 0 &&
         Number(reporte.data?.turno?.totalDevoluciones) > 0
+    );
+
+    const auditoria = await prisma.auditoria.count({
+      where: {
+        accion: {
+          in: [
+            "caja.open",
+            "caja.movement",
+            "discount.apply",
+            "payment.create",
+            "payment.refund",
+            "payment.conciliate",
+            "caja.close",
+          ],
+        },
+      },
+    });
+    check("Auditoría registra las mutaciones de caja", auditoria >= 7, `filas=${auditoria}`);
+
+    const exportAdmin = await api("/api/auditoria/export", { token: adminToken });
+    check("Admin exporta auditoría (200)", exportAdmin.status === 200);
+
+    const exportSupervisor = await api("/api/auditoria/export", {
+      token: supervisorToken,
+    });
+    check(
+      "Supervisor no exporta auditoría (403)",
+      exportSupervisor.status === 403
     );
 
     // 5) Disponibilidad de reservas

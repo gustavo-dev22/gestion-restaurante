@@ -19,6 +19,7 @@ import {
   type TurnoCajaResumenDto,
 } from "@/lib/caja-types";
 import type { SessionPayload } from "@/lib/auth/session";
+import { actorFromSession, auditLog, type AuditContext } from "@/lib/audit";
 
 type PagoConPedido = {
   id: number;
@@ -421,7 +422,8 @@ function esConflictoCajaAbierta(error: unknown): boolean {
 
 export async function abrirTurno(
   actor: SessionPayload,
-  fondoInicial: number
+  fondoInicial: number,
+  audit?: AuditContext
 ): Promise<TurnoCajaDto> {
   const fondo = roundMoney(Number(fondoInicial));
   if (!Number.isFinite(fondo) || fondo < 0) {
@@ -464,6 +466,22 @@ export async function abrirTurno(
         },
       });
 
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "caja.open",
+            entidad: "TurnoCaja",
+            entidadId: turno.id,
+            despues: { turnoId: turno.id, fondoInicial: fondo, estado: turno.estado },
+            motivo: "Apertura de caja",
+            turnoId: turno.id,
+          },
+          audit,
+          tx
+        );
+      }
+
       return mapTurno(turno);
     });
   } catch (error) {
@@ -479,7 +497,8 @@ export async function registrarMovimiento(
   turnoId: number,
   tipo: unknown,
   monto: unknown,
-  motivo: unknown
+  motivo: unknown,
+  audit?: AuditContext
 ): Promise<MovimientoCajaDto> {
   if (!Number.isInteger(turnoId) || turnoId <= 0) {
     throw new CajaError(400, "TURNO_INVALIDO", "El turno es inválido.");
@@ -521,6 +540,28 @@ export async function registrarMovimiento(
         },
       });
 
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "caja.movement",
+            entidad: "MovimientoCaja",
+            entidadId: movimiento.id,
+            despues: {
+              movimientoId: movimiento.id,
+              turnoId,
+              tipo,
+              monto: importe,
+              motivo: razon,
+            },
+            motivo: razon,
+            turnoId,
+          },
+          audit,
+          tx
+        );
+      }
+
       return mapMovimiento(movimiento);
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
@@ -531,7 +572,8 @@ export async function conciliarPagos(
   actor: SessionPayload,
   turnoId: number,
   pagoIds: unknown,
-  devolucionIds?: unknown
+  devolucionIds?: unknown,
+  audit?: AuditContext
 ): Promise<{ conciliados: number; devolucionesConciliadas: number }> {
   const ids = Array.from(
     new Set(
@@ -644,6 +686,28 @@ export async function conciliarPagos(
         },
       });
 
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "payment.conciliate",
+            entidad: "TurnoCaja",
+            entidadId: turnoId,
+            despues: {
+              turnoId,
+              pagoIds: ids,
+              devolucionIds: devIds,
+              conciliados,
+              devolucionesConciliadas,
+            },
+            motivo: "Conciliación de pagos",
+            turnoId,
+          },
+          audit,
+          tx
+        );
+      }
+
       return { conciliados, devolucionesConciliadas };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
@@ -654,7 +718,8 @@ export async function cerrarTurno(
   actor: SessionPayload,
   turnoId: number,
   efectivoContado: unknown,
-  justificacion: unknown
+  justificacion: unknown,
+  audit?: AuditContext
 ): Promise<TurnoCajaDto> {
   const contado = roundMoney(Number(efectivoContado));
   if (!Number.isFinite(contado) || contado < 0) {
@@ -823,6 +888,37 @@ export async function cerrarTurno(
           usuarioNombre: actor.nombre,
         },
       });
+
+      if (audit) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "caja.close",
+            entidad: "TurnoCaja",
+            entidadId: turnoId,
+            antes: {
+              estado: turno.estado,
+              fondoInicial: Number(turno.fondoInicial),
+            },
+            despues: {
+              turnoId,
+              estado: "Cerrado",
+              efectivoContado: contado,
+              efectivoEsperado: resumen.efectivoEsperado,
+              diferencia,
+              totalVentas: resumen.totalVentas,
+              totalPropinas: resumen.totalPropinas,
+              totalDescuentos,
+              totalDevoluciones: resumen.totalDevoluciones,
+              justificacion: razon || null,
+            },
+            motivo: razon || "Cierre de caja",
+            turnoId,
+          },
+          audit,
+          tx
+        );
+      }
 
       return mapTurno(actualizado, resumen);
     },

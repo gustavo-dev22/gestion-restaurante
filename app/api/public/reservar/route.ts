@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseLimaDateTime } from '@/lib/utils';
 import { getClientIp, rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
+import { auditLogSafe, getAuditContext } from '@/lib/audit';
 
 const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
 
@@ -88,6 +89,17 @@ export async function POST(request: Request) {
         fecha_creacion: new Date(),
       },
     });
+
+    await auditLogSafe(
+      {
+        accion: "reservation.create",
+        entidad: "Reserva",
+        entidadId: nuevaReserva.id,
+        despues: nuevaReserva,
+        motivo: "Reserva creada desde la web pública",
+      },
+      getAuditContext(request)
+    );
 
     // La mesa NO se marca como "Reservada": la disponibilidad se calcula
     // dinámicamente según la fecha/hora de la reserva.

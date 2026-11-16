@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { conciliarPagos } from "@/lib/caja";
-import {
-  authorizeCash,
-  cajaErrorResponse,
-  revalidateCaja,
-} from "@/lib/caja-http";
-import { CASH_PATHS } from "@/lib/auth/cash-permissions";
+import { cajaErrorResponse, revalidateCaja } from "@/lib/caja-http";
+import { authorizeLocal } from "@/lib/rbac";
+import { getAuditContext } from "@/lib/audit";
 import { withIdempotency } from "@/lib/idempotency";
 
 export async function PATCH(
@@ -13,7 +10,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withIdempotency(request, async () => {
-    const auth = await authorizeCash(request, CASH_PATHS.turno, "EDITAR");
+    const auth = await authorizeLocal(request, "payments:conciliate");
     if (auth instanceof NextResponse) return auth;
 
     try {
@@ -27,7 +24,8 @@ export async function PATCH(
         auth,
         turnoId,
         body?.pagoIds,
-        body?.devolucionIds
+        body?.devolucionIds,
+        getAuditContext(request)
       );
       revalidateCaja();
       return NextResponse.json({ success: true, ...resultado });

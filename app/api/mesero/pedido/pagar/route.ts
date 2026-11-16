@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { authorizeLocal } from "@/lib/rbac";
+import { getAuditContext } from "@/lib/audit";
 import { registrarPago } from "@/lib/payments";
 import { cajaErrorResponse, revalidateCaja } from "@/lib/caja-http";
 import { withIdempotency } from "@/lib/idempotency";
 
 export async function PATCH(request: Request) {
   return withIdempotency(request, async () => {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json(
-        { error: "UNAUTHORIZED", message: "Debes iniciar sesión." },
-        { status: 401 }
-      );
-    }
+    const session = await authorizeLocal(request, "payments:create");
+    if (session instanceof NextResponse) return session;
 
     try {
       const body = (await request.json().catch(() => null)) as
@@ -25,6 +21,7 @@ export async function PATCH(request: Request) {
         metodo: String(body?.metodoPago ?? ""),
         allowAnyOrder: false,
         fullBalanceOnly: true,
+        audit: getAuditContext(request),
       });
 
       revalidateCaja();

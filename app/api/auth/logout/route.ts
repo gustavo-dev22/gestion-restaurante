@@ -6,9 +6,23 @@ import {
 } from "@/lib/auth/session";
 import { SSO_COOKIE_NAMES, getRequestOrigin } from "@/lib/auth/sso";
 import { buildSasiLogoutUrl } from "@/lib/sasi";
+import { actorFromSession, auditLogSafe, getAuditContext } from "@/lib/audit";
 
 export async function POST(request: Request) {
   const session = await getSessionFromRequest(request);
+
+  if (session) {
+    await auditLogSafe(
+      {
+        actor: actorFromSession(session),
+        accion: "auth.logout",
+        entidad: "Auth",
+        entidadId: session.sub,
+        motivo: "Cierre de sesión",
+      },
+      getAuditContext(request)
+    );
+  }
 
   let ssoLogoutUrl: string | undefined;
   if (session?.authMethod === "sso") {
