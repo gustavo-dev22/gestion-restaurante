@@ -96,9 +96,9 @@ async function main() {
     home: "/admin/dashboard",
     sections: ["admin", "mesero", "cocina", "caja"],
     cashPermissions: {
-      "/caja": ["LISTAR", "CREAR", "EDITAR", "EXPORTAR"],
-      "/caja/movimientos": ["LISTAR", "CREAR"],
-      "/caja/historial": ["LISTAR", "EXPORTAR"],
+      "/caja": ["LISTAR", "CREAR", "EDITAR", "EXPORTAR", "APROBAR"],
+      "/caja/movimientos": ["LISTAR", "CREAR", "APROBAR"],
+      "/caja/historial": ["LISTAR", "EXPORTAR", "APROBAR"],
     },
   });
   const meseroToken = await createToken({
@@ -122,6 +122,8 @@ async function main() {
   let llamadoId = null;
   let turnoId = null;
   let pagoId = null;
+  let devolucionId = null;
+  let cuponCodigo = null;
   let stockRestore = null;
 
   try {
@@ -290,24 +292,137 @@ async function main() {
     });
     check("Llamado atendido", atencion.status === 200 && atencion.data?.estado === "Atendido");
 
-    const pago = await api("/api/mesero/pedido/pagar", {
-      method: "PATCH",
+    const cuentaInicial = await api(`/api/caja/pedidos/${pedidoId}/cuenta`, {
       token: adminToken,
-      body: { pedidoId, metodoPago: "Tarjeta" },
     });
-    pagoId = pago.data?.pagoId ?? null;
-    check("Pago procesado (200)", pago.status === 200 && Boolean(pagoId));
+    const saldoInicial = Number(cuentaInicial.data?.pedido?.saldo ?? 0);
+    check(
+      "Cuenta del pedido disponible con saldo pendiente",
+      cuentaInicial.status === 200 && saldoInicial > 0
+    );
+
+    cuponCodigo = `SMOKE-${Date.now()}`;
+    await prisma.cupon.create({
+      data: {
+        codigo: cuponCodigo,
+        tipo: "Porcentaje",
+        valor: 10,
+        activo: true,
+      },
+    });
+
+    const descuento = await api(`/api/caja/pedidos/${pedidoId}/descuentos`, {
+      method: "POST",
+      token: adminToken,
+      body: { cuponCodigo, motivo: "Descuento de prueba smoke" },
+    });
+    const saldoDespuesDescuento = Number(
+      descuento.data?.cuenta?.pedido?.saldo ?? 0
+    );
+    check(
+      "Descuento con cupón aplicado (200)",
+      descuento.status === 200 &&
+        Number(descuento.data?.cuenta?.pedido?.descuentoTotal) > 0 &&
+        saldoDespuesDescuento > 0 &&
+        saldoDespuesDescuento < saldoInicial
+    );
+
+    const primerMonto = Math.round((saldoDespuesDescuento / 2) * 100) / 100;
+    const primerPago = await api(`/api/caja/pedidos/${pedidoId}/pagos`, {
+      method: "POST",
+      token: adminToken,
+      body: {
+        metodoPago: "Efectivo",
+        monto: primerMonto,
+        propina: 5,
+        montoRecibido: primerMonto + 20,
+      },
+    });
+    const primerPagoId = primerPago.data?.pagoId ?? null;
+    check(
+      "Pago parcial en efectivo con propina (200)",
+      primerPago.status === 200 &&
+        Boolean(primerPagoId) &&
+        Number(primerPago.data?.saldo) > 0
+    );
+
+    const cuentaParcial = await api(`/api/caja/pedidos/${pedidoId}/cuenta`, {
+      token: adminToken,
+    });
+    const pagoEfectivo = (cuentaParcial.data?.pagos ?? []).find(
+      (item) => item.id === primerPagoId
+    );
+    const saldoParcial = Number(cuentaParcial.data?.pedido?.saldo ?? 0);
+    check(
+      "Pago parcial actualiza saldo, propina y cambio",
+      cuentaParcial.status === 200 &&
+        cuentaParcial.data?.pedido?.estadoPago === "Parcial" &&
+        Number(pagoEfectivo?.propina) === 5 &&
+        Math.abs(Number(pagoEfectivo?.cambio ?? 0) - 15) < 0.01 &&
+        saldoParcial > 0 &&
+        saldoParcial < saldoDespuesDescuento
+    );
+
+    const segundoMonto = saldoParcial;
+    const segundoPago = await api(`/api/caja/pedidos/${pedidoId}/pagos`, {
+      method: "POST",
+      token: adminToken,
+      body: {
+        metodoPago: "Tarjeta",
+        monto: segundoMonto,
+        referencia: "SMOKE-REF",
+        codigoAutorizacion: "SMOKE-AUTH",
+      },
+    });
+    pagoId = segundoPago.data?.pagoId ?? null;
+    check(
+      "Segundo pago con otro método completa la cuenta (200)",
+      segundoPago.status === 200 &&
+        Boolean(pagoId) &&
+        Number(segundoPago.data?.saldo) === 0
+    );
 
     const pedidoFinal = await prisma.pedido.findUnique({ where: { id: pedidoId } });
-    check("Pedido queda Pagado", pedidoFinal?.estado === "Pagado");
+    check(
+      "Pedido queda Pagado",
+      pedidoFinal?.estado === "Pagado" && pedidoFinal?.estadoPago === "Pagado"
+    );
     check("Método de pago persistido", pedidoFinal?.metodoPago === "Tarjeta");
     const mesaFinal = await prisma.mesa.findUnique({ where: { id: mesaId } });
     check("Mesa liberada tras el pago", mesaFinal?.estado === "Libre");
 
+    const cuentaPagada = await api(`/api/caja/pedidos/${pedidoId}/cuenta`, {
+      token: adminToken,
+    });
+    const pagosValidos = (cuentaPagada.data?.pagos ?? []).filter(
+      (item) => item.estado !== "Anulado"
+    );
+    const totalPagos = pagosValidos.reduce(
+      (total, item) => total + Number(item.monto) + Number(item.propina),
+      0
+    );
+    check(
+      "La suma de pagos coincide con el total",
+      Math.abs(totalPagos - Number(pedidoFinal?.total ?? 0)) < 0.01
+    );
+
+    const ticket = await api(`/api/caja/pedidos/${pedidoId}/ticket`, {
+      token: adminToken,
+    });
+    check(
+      "Ticket interno disponible (200)",
+      ticket.status === 200 && Boolean(ticket.data?.cuenta?.comprobante)
+    );
+
+    const turnoAntes = await api("/api/caja/turno-activo", { token: adminToken });
+    const efectivoEsperado = Number(
+      turnoAntes.data?.resumen?.efectivoEsperado ?? 0
+    );
+
     const cierrePendiente = await api(`/api/caja/turnos/${turnoId}/cerrar`, {
       method: "POST",
       token: adminToken,
-      body: { efectivoContado: 90 },
+      body: { efectivoContado: efectivoEsperado },
     });
     check(
       "Cierre bloqueado con pago electrónico pendiente (409)",
@@ -325,10 +440,75 @@ async function main() {
       conciliado.status === 200 && conciliado.data?.conciliados === 1
     );
 
+    const detalleDevolucion = await prisma.pedidoDetalle.findFirst({
+      where: { pedidoId, productoId },
+    });
+    if (!detalleDevolucion) {
+      throw new Error("No se encontró el detalle para la devolución.");
+    }
+    const stockAntesDevolucion = Number(
+      (await prisma.producto.findUnique({ where: { id: productoId } }))?.stock ?? 0
+    );
+
+    const devolucion = await api(`/api/caja/pedidos/${pedidoId}/devoluciones`, {
+      method: "POST",
+      token: adminToken,
+      body: {
+        pagoId,
+        monto: segundoMonto,
+        propina: 0,
+        motivo: "Devolución de prueba smoke",
+        items: [{ pedidoDetalleId: detalleDevolucion.id, cantidad: 1 }],
+      },
+    });
+    devolucionId = devolucion.data?.cuenta?.devoluciones?.[0]?.id ?? null;
+    const stockTrasDevolucion = Number(
+      (await prisma.producto.findUnique({ where: { id: productoId } }))?.stock ?? 0
+    );
+    const pagoReembolsado = (devolucion.data?.cuenta?.pagos ?? []).find(
+      (item) => item.id === pagoId
+    );
+    check(
+      "Devolución registrada y stock repuesto (200)",
+      devolucion.status === 200 &&
+        Boolean(devolucionId) &&
+        stockTrasDevolucion === stockAntesDevolucion + 1 &&
+        pagoReembolsado?.estado === "Reembolsado"
+    );
+
+    const turnoTrasDevolucion = await api("/api/caja/turno-activo", {
+      token: adminToken,
+    });
+    const efectivoFinal = Number(
+      turnoTrasDevolucion.data?.resumen?.efectivoEsperado ?? 0
+    );
+
+    const cierreDevPendiente = await api(`/api/caja/turnos/${turnoId}/cerrar`, {
+      method: "POST",
+      token: adminToken,
+      body: { efectivoContado: efectivoFinal },
+    });
+    check(
+      "Cierre bloqueado con devolución electrónica pendiente (409)",
+      cierreDevPendiente.status === 409 &&
+        cierreDevPendiente.data?.error === "DEVOLUCIONES_PENDIENTES"
+    );
+
+    const conciliadoDev = await api(`/api/caja/turnos/${turnoId}/conciliar`, {
+      method: "PATCH",
+      token: adminToken,
+      body: { devolucionIds: [devolucionId] },
+    });
+    check(
+      "Devolución electrónica conciliada (200)",
+      conciliadoDev.status === 200 &&
+        conciliadoDev.data?.devolucionesConciliadas === 1
+    );
+
     const cierre = await api(`/api/caja/turnos/${turnoId}/cerrar`, {
       method: "POST",
       token: adminToken,
-      body: { efectivoContado: 90 },
+      body: { efectivoContado: efectivoFinal },
     });
     check(
       "Cierre de caja correcto (200)",
@@ -341,11 +521,15 @@ async function main() {
       token: adminToken,
     });
     check(
-      "Reporte de cierre disponible (200)",
+      "Reporte de cierre con pagos, propinas, descuentos y devoluciones (200)",
       reporte.status === 200 &&
         reporte.data?.turno?.estado === "Cerrado" &&
-        reporte.data?.pagos?.length === 1 &&
-        Number(reporte.data?.resumen?.totalTarjeta) > 0
+        reporte.data?.pagos?.length === 2 &&
+        reporte.data?.devoluciones?.length === 1 &&
+        Number(reporte.data?.resumen?.totalTarjeta) > 0 &&
+        Number(reporte.data?.turno?.totalPropinas) > 0 &&
+        Number(reporte.data?.turno?.totalDescuentos) > 0 &&
+        Number(reporte.data?.turno?.totalDevoluciones) > 0
     );
 
     // 5) Disponibilidad de reservas
@@ -358,21 +542,71 @@ async function main() {
       disponibilidad.status === 200 && typeof disponibilidad.data?.disponible === "boolean"
     );
   } finally {
+    const devoluciones = pedidoId || turnoId
+      ? await prisma.devolucion
+          .findMany({
+            where: {
+              OR: [
+                ...(pedidoId ? [{ pedidoId }] : []),
+                ...(turnoId ? [{ turnoId }] : []),
+              ],
+            },
+            select: { id: true },
+          })
+          .catch(() => [])
+      : [];
+    const devolucionIds = devoluciones.map((item) => item.id);
+
+    if (devolucionIds.length > 0) {
+      await prisma.devolucionDetalle
+        .deleteMany({ where: { devolucionId: { in: devolucionIds } } })
+        .catch(() => {});
+      await prisma.movimientoStock
+        .deleteMany({ where: { referenciaId: { in: devolucionIds } } })
+        .catch(() => {});
+      await prisma.devolucion
+        .deleteMany({ where: { id: { in: devolucionIds } } })
+        .catch(() => {});
+    }
+
+    const pagos = pedidoId || turnoId
+      ? await prisma.pago
+          .findMany({
+            where: {
+              OR: [
+                ...(pedidoId ? [{ pedidoId }] : []),
+                ...(turnoId ? [{ turnoId }] : []),
+              ],
+            },
+            select: { id: true },
+          })
+          .catch(() => [])
+      : [];
+    const pagoIds = pagos.map((item) => item.id);
+
+    if (pagoIds.length > 0) {
+      await prisma.pagoAplicacion
+        .deleteMany({ where: { pagoId: { in: pagoIds } } })
+        .catch(() => {});
+      await prisma.pago.deleteMany({ where: { id: { in: pagoIds } } }).catch(() => {});
+    }
+
     if (pedidoId) {
-      await prisma.pago.deleteMany({ where: { pedidoId } }).catch(() => {});
+      await prisma.descuento.deleteMany({ where: { pedidoId } }).catch(() => {});
+      await prisma.comprobante.deleteMany({ where: { pedidoId } }).catch(() => {});
+      await prisma.pedidoDetalle.deleteMany({ where: { pedidoId } }).catch(() => {});
+      await prisma.pedido.delete({ where: { id: pedidoId } }).catch(() => {});
     }
     if (llamadoId) {
       await prisma.pedido.delete({ where: { id: llamadoId } }).catch(() => {});
     }
-    if (pedidoId) {
-      await prisma.pedidoDetalle.deleteMany({ where: { pedidoId } });
-      await prisma.pedido.delete({ where: { id: pedidoId } }).catch(() => {});
-    }
     if (turnoId) {
-      await prisma.pago.deleteMany({ where: { turnoId } }).catch(() => {});
       await prisma.movimientoCaja.deleteMany({ where: { turnoId } }).catch(() => {});
       await prisma.cajaEvento.deleteMany({ where: { turnoId } }).catch(() => {});
       await prisma.turnoCaja.delete({ where: { id: turnoId } }).catch(() => {});
+    }
+    if (cuponCodigo) {
+      await prisma.cupon.deleteMany({ where: { codigo: cuponCodigo } }).catch(() => {});
     }
     if (productoId && stockRestore !== null) {
       await prisma.producto

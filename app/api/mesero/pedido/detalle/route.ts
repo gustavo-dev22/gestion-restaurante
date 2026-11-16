@@ -118,7 +118,12 @@ export async function POST(request: Request) {
 
       await tx.pedido.update({
         where: { id: pedidoId },
-        data: { total: { increment: totalAgregado } },
+        data: {
+          total: { increment: totalAgregado },
+          subtotal: { increment: totalAgregado },
+          saldo: { increment: totalAgregado },
+          estadoPago: 'Pendiente',
+        },
       });
     });
 

@@ -76,6 +76,24 @@ describe("cash-permissions", () => {
     );
   });
 
+  it("conserva la acción APROBAR del rol Supervisor", () => {
+    const supervisor = usuarioCajero();
+    supervisor.sistemas![0].roles![0].nombreRol = "Supervisor";
+    supervisor.sistemas![0].roles![0].objetos = [
+      {
+        idObjeto: 1,
+        nombre: "Turno Actual",
+        url: "/caja",
+        acciones: ["LISTAR", "EXPORTAR", "APROBAR"],
+      },
+    ];
+
+    const permissions = getCashPermissions(supervisor);
+    expect(permissions[CASH_PATHS.turno]).toEqual(
+      expect.arrayContaining(["LISTAR", "EXPORTAR", "APROBAR"])
+    );
+  });
+
   it("valida permisos por ruta y acción", () => {
     const permissions = getCashPermissions(usuarioCajero());
     const session = { cashPermissions: permissions };

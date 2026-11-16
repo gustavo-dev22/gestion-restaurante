@@ -56,7 +56,7 @@ export default async function ReporteCajaPage({ params }: ReportePageProps) {
   const reporte = await getReporteTurno(turnoId);
   if (!reporte) notFound();
 
-  const { turno, resumen, pagos, movimientos } = reporte;
+  const { turno, resumen, pagos, movimientos, devoluciones } = reporte;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -121,6 +121,18 @@ export default async function ReporteCajaPage({ params }: ReportePageProps) {
             <div className="rounded-xl border border-slate-200 p-3">
               <p className="text-xs font-semibold text-slate-500">Total ventas</p>
               <p className="font-bold text-slate-800">{formatCurrency(resumen.totalVentas)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold text-slate-500">Propinas</p>
+              <p className="font-bold text-slate-800">{formatCurrency(resumen.totalPropinas)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold text-slate-500">Devoluciones</p>
+              <p className="font-bold text-slate-800">{formatCurrency(resumen.totalDevoluciones)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-xs font-semibold text-slate-500">Total cobrado</p>
+              <p className="font-bold text-slate-800">{formatCurrency(resumen.totalCobrado)}</p>
             </div>
           </div>
         </section>
@@ -208,6 +220,42 @@ export default async function ReporteCajaPage({ params }: ReportePageProps) {
             </table>
           )}
         </section>
+
+        {devoluciones.length > 0 && (
+          <section className="mt-6" aria-label="Devoluciones del turno">
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-600">
+              Devoluciones
+            </h2>
+            <table className="w-full text-sm" aria-label="Devoluciones registradas en el turno">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-2">#</th>
+                  <th className="py-2 pr-2">Pago</th>
+                  <th className="py-2 pr-2">Método</th>
+                  <th className="py-2 pr-2">Motivo</th>
+                  <th className="py-2 pr-2 text-right">Monto</th>
+                  <th className="py-2 text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {devoluciones.map((devolucion) => (
+                  <tr key={devolucion.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-2">#{devolucion.id}</td>
+                    <td className="py-2 pr-2">
+                      {devolucion.pagoId ? `#${devolucion.pagoId}` : "—"}
+                    </td>
+                    <td className="py-2 pr-2">{devolucion.metodo}</td>
+                    <td className="py-2 pr-2">{devolucion.motivo}</td>
+                    <td className="py-2 pr-2 text-right font-semibold">
+                      {formatCurrency(devolucion.monto + devolucion.propina)}
+                    </td>
+                    <td className="py-2 text-right">{devolucion.estado}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         <section className="mt-6" aria-label="Movimientos de caja">
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-600">

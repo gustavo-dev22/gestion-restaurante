@@ -146,6 +146,12 @@ export async function POST(request: Request) {
         data: {
           mesaId,
           total,
+          subtotal: total,
+          descuentoTotal: 0,
+          propinaTotal: 0,
+          totalPagado: 0,
+          saldo: total,
+          estadoPago: 'Pendiente',
           estado: 'Por Confirmar',
           nombreMesero: 'Cliente (Digital)',
           fecha_creacion: new Date(),

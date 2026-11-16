@@ -31,6 +31,8 @@ model Producto {
   activo         Boolean?        @default(true, map: "DF__Productos__activ__3C69FB99")
   fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
   detallesPedido PedidoDetalle[]
+  movimientosStock MovimientoStock[]
+  devolucionDetalles DevolucionDetalle[]
   categoria      Categoria       @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
 
   @@map("Productos")
@@ -58,10 +60,19 @@ model Pedido {
   estado         String?         @default("Pendiente", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(20)
   fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
   pagadoEn       DateTime?       @db.DateTime2
+  subtotal       Decimal         @default(0) @db.Decimal(10, 2)
+  descuentoTotal Decimal         @default(0) @db.Decimal(10, 2)
+  propinaTotal   Decimal         @default(0) @db.Decimal(10, 2)
+  totalPagado    Decimal         @default(0) @db.Decimal(10, 2)
+  saldo          Decimal         @default(0) @db.Decimal(10, 2)
+  estadoPago     String          @default("Pendiente") @db.NVarChar(20)
   nombreMesero   String?         @db.NVarChar(100)
   metodoPago     String?         @db.NVarChar(30)
   detalles       PedidoDetalle[]
   pagos          Pago[]
+  descuento      Descuento?
+  devoluciones   Devolucion[]
+  comprobante    Comprobante?
   mesa           Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
 
   @@map("Pedidos")
@@ -77,6 +88,8 @@ model PedidoDetalle {
   estado          String?  @db.VarChar(20)
   pedido          Pedido   @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
   producto        Producto @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")
+  aplicaciones    PagoAplicacion[]
+  devolucionDetalles DevolucionDetalle[]
 
   @@map("Pedido_Detalles")
 }
@@ -108,6 +121,10 @@ model TurnoCaja {
   totalBilleteras  Decimal   @default(0) @db.Decimal(10, 2)
   totalOtros       Decimal   @default(0) @db.Decimal(10, 2)
   totalVentas      Decimal   @default(0) @db.Decimal(10, 2)
+  totalPropinas    Decimal   @default(0) @db.Decimal(10, 2)
+  totalDescuentos  Decimal   @default(0) @db.Decimal(10, 2)
+  totalDevoluciones Decimal  @default(0) @db.Decimal(10, 2)
+  totalCobrado     Decimal   @default(0) @db.Decimal(10, 2)
   totalIngresos    Decimal   @default(0) @db.Decimal(10, 2)
   totalRetiros     Decimal   @default(0) @db.Decimal(10, 2)
   totalGastos      Decimal   @default(0) @db.Decimal(10, 2)
@@ -122,6 +139,7 @@ model TurnoCaja {
   pagos            Pago[]
   movimientos      MovimientoCaja[]
   eventos          CajaEvento[]
+  devoluciones     Devolucion[]
 
   @@index([estado, abiertoEn])
   @@map("TurnosCaja")
@@ -138,6 +156,17 @@ model Pago {
   propina         Decimal    @default(0) @db.Decimal(10, 2)
   descuento       Decimal    @default(0) @db.Decimal(10, 2)
   referencia      String?    @db.NVarChar(100)
+  codigoAutorizacion String? @db.NVarChar(100)
+  terminal        String?    @db.NVarChar(50)
+  montoRecibido   Decimal?   @db.Decimal(10, 2)
+  cambio          Decimal?   @db.Decimal(10, 2)
+  etiqueta        String?    @db.NVarChar(50)
+  autorizadoPorId String?    @db.UniqueIdentifier
+  autorizadoPorNombre String? @db.NVarChar(150)
+  anuladoPorId    String?    @db.UniqueIdentifier
+  anuladoPorNombre String?   @db.NVarChar(150)
+  anuladoEn       DateTime?  @db.DateTime2
+  motivoAnulacion String?    @db.NVarChar(500)
   estado          String     @default("Registrado") @db.NVarChar(20)
   origen          String     @default("POS") @db.NVarChar(20)
   conciliadoEn    DateTime?  @db.DateTime2
@@ -145,6 +174,8 @@ model Pago {
   createdAt       DateTime   @default(now()) @db.DateTime2
   pedido          Pedido     @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_Pedidos")
   turno           TurnoCaja? @relation(fields: [turnoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_TurnosCaja")
+  aplicaciones    PagoAplicacion[]
+  devoluciones    Devolucion[]
 
   @@index([turnoId, estado])
   @@index([pedidoId])
@@ -180,6 +211,127 @@ model CajaEvento {
 
   @@index([turnoId, createdAt])
   @@map("CajaEventos")
+}
+
+model PagoAplicacion {
+  id              Int           @id @default(autoincrement())
+  pagoId          Int
+  pedidoDetalleId Int
+  cantidad        Int
+  monto           Decimal       @db.Decimal(10, 2)
+  pago            Pago          @relation(fields: [pagoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_PagoAplicaciones_Pagos")
+  pedidoDetalle   PedidoDetalle @relation(fields: [pedidoDetalleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_PagoAplicaciones_Detalles")
+
+  @@unique([pagoId, pedidoDetalleId])
+  @@index([pedidoDetalleId])
+  @@map("PagoAplicaciones")
+}
+
+model Descuento {
+  id                  Int      @id @default(autoincrement())
+  pedidoId            Int      @unique
+  tipo                String   @db.NVarChar(20)
+  valor               Decimal  @db.Decimal(10, 2)
+  montoAplicado       Decimal  @db.Decimal(10, 2)
+  motivo              String   @db.NVarChar(300)
+  cuponId             Int?
+  autorizadoPorId     String?  @db.UniqueIdentifier
+  autorizadoPorNombre String?  @db.NVarChar(150)
+  createdAt           DateTime @default(now()) @db.DateTime2
+  pedido              Pedido   @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Descuentos_Pedidos")
+  cupon               Cupon?   @relation(fields: [cuponId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Descuentos_Cupones")
+
+  @@index([cuponId])
+  @@map("Descuentos")
+}
+
+model Cupon {
+  id           Int         @id @default(autoincrement())
+  codigo       String      @unique @db.NVarChar(50)
+  tipo         String      @db.NVarChar(20)
+  valor        Decimal     @db.Decimal(10, 2)
+  validoDesde  DateTime?   @db.DateTime2
+  validoHasta  DateTime?   @db.DateTime2
+  usosMaximos  Int?
+  usos         Int         @default(0)
+  activo       Boolean     @default(true)
+  createdAt    DateTime    @default(now()) @db.DateTime2
+  descuentos   Descuento[]
+
+  @@map("Cupones")
+}
+
+model Devolucion {
+  id                  Int                 @id @default(autoincrement())
+  pedidoId            Int
+  pagoId              Int?
+  turnoId             Int
+  cajeroId            String              @db.UniqueIdentifier
+  cajeroNombre        String              @db.NVarChar(150)
+  metodo              String              @db.NVarChar(30)
+  monto               Decimal             @db.Decimal(10, 2)
+  propina             Decimal             @default(0) @db.Decimal(10, 2)
+  motivo              String              @db.NVarChar(500)
+  autorizadoPorId     String?             @db.UniqueIdentifier
+  autorizadoPorNombre String?             @db.NVarChar(150)
+  estado              String              @default("Registrada") @db.NVarChar(20)
+  reversionStock      Boolean             @default(false)
+  conciliadoEn        DateTime?           @db.DateTime2
+  conciliadoPorId     String?             @db.UniqueIdentifier
+  createdAt           DateTime            @default(now()) @db.DateTime2
+  pedido              Pedido              @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Devoluciones_Pedidos")
+  pago                Pago?               @relation(fields: [pagoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Devoluciones_Pagos")
+  turno               TurnoCaja           @relation(fields: [turnoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Devoluciones_TurnosCaja")
+  detalles            DevolucionDetalle[]
+
+  @@index([pedidoId])
+  @@index([pagoId])
+  @@index([turnoId, estado])
+  @@map("Devoluciones")
+}
+
+model DevolucionDetalle {
+  id              Int        @id @default(autoincrement())
+  devolucionId    Int
+  pedidoDetalleId Int?
+  productoId      Int
+  cantidad        Int
+  monto           Decimal?   @db.Decimal(10, 2)
+  devolucion      Devolucion @relation(fields: [devolucionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Devoluciones")
+  pedidoDetalle   PedidoDetalle? @relation(fields: [pedidoDetalleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Detalles")
+  producto        Producto   @relation(fields: [productoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DevolucionDetalles_Productos")
+
+  @@index([devolucionId])
+  @@index([productoId])
+  @@map("DevolucionDetalles")
+}
+
+model MovimientoStock {
+  id            Int      @id @default(autoincrement())
+  productoId    Int
+  cantidad      Int
+  tipo          String   @db.NVarChar(20)
+  motivo        String?  @db.NVarChar(300)
+  referenciaId  Int?
+  usuarioId     String?  @db.UniqueIdentifier
+  usuarioNombre String?  @db.NVarChar(150)
+  createdAt     DateTime @default(now()) @db.DateTime2
+  producto      Producto @relation(fields: [productoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_MovimientosStock_Productos")
+
+  @@index([productoId, createdAt])
+  @@map("MovimientosStock")
+}
+
+model Comprobante {
+  id         Int      @id @default(autoincrement())
+  pedidoId   Int      @unique
+  tipo       String   @default("Ticket") @db.NVarChar(20)
+  monto      Decimal  @db.Decimal(10, 2)
+  estado     String   @default("Emitido") @db.NVarChar(20)
+  createdAt  DateTime @default(now()) @db.DateTime2
+  pedido     Pedido   @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Comprobantes_Pedidos")
+
+  @@map("Comprobantes")
 }
 
 model IdempotencyKey {

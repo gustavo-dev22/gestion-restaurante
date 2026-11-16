@@ -15,21 +15,54 @@ export async function POST(request: Request) {
 
     try {
       const body = (await request.json().catch(() => null)) as
-        | { pedidoId?: unknown; metodoPago?: unknown; referencia?: unknown }
+        | {
+            pedidoId?: unknown;
+            metodoPago?: unknown;
+            monto?: unknown;
+            propina?: unknown;
+            referencia?: unknown;
+            codigoAutorizacion?: unknown;
+            terminal?: unknown;
+            montoRecibido?: unknown;
+            etiqueta?: unknown;
+            aplicaciones?: unknown;
+          }
         | null;
+
+      const aplicaciones = Array.isArray(body?.aplicaciones)
+        ? body.aplicaciones.map((item) => {
+            const record = item as Record<string, unknown>;
+            return {
+              pedidoDetalleId: Number(record.pedidoDetalleId),
+              cantidad: Number(record.cantidad),
+            };
+          })
+        : undefined;
 
       const resultado = await registrarPago({
         actor: auth,
         pedidoId: Number(body?.pedidoId),
         metodo: String(body?.metodoPago ?? ""),
+        monto: body?.monto == null ? undefined : Number(body.monto),
+        propina: body?.propina == null ? 0 : Number(body.propina),
         referencia: body?.referencia == null ? null : String(body.referencia),
+        codigoAutorizacion:
+          body?.codigoAutorizacion == null ? null : String(body.codigoAutorizacion),
+        terminal: body?.terminal == null ? null : String(body.terminal),
+        montoRecibido:
+          body?.montoRecibido == null ? null : Number(body.montoRecibido),
+        etiqueta: body?.etiqueta == null ? null : String(body.etiqueta),
+        aplicaciones,
         allowAnyOrder: true,
       });
 
       revalidateCaja();
       return NextResponse.json({
         success: true,
-        message: "Pago procesado y mesa liberada",
+        message:
+          resultado.saldo <= 0
+            ? "Pago procesado y mesa liberada"
+            : "Pago parcial registrado",
         ...resultado,
         metodoPago: resultado.metodo,
       });

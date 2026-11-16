@@ -24,6 +24,7 @@ export async function PATCH(request: Request) {
         pedidoId: Number(body?.pedidoId),
         metodo: String(body?.metodoPago ?? ""),
         allowAnyOrder: false,
+        fullBalanceOnly: true,
       });
 
       revalidateCaja();

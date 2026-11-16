@@ -20,10 +20,15 @@ export async function PATCH(
       const { id } = await params;
       const turnoId = Number(id);
       const body = (await request.json().catch(() => null)) as
-        | { pagoIds?: unknown }
+        | { pagoIds?: unknown; devolucionIds?: unknown }
         | null;
 
-      const resultado = await conciliarPagos(auth, turnoId, body?.pagoIds);
+      const resultado = await conciliarPagos(
+        auth,
+        turnoId,
+        body?.pagoIds,
+        body?.devolucionIds
+      );
       revalidateCaja();
       return NextResponse.json({ success: true, ...resultado });
     } catch (error) {

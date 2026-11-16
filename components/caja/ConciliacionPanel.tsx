@@ -25,12 +25,18 @@ export function ConciliacionPanel({
   onRefresh,
 }: ConciliacionPanelProps) {
   const [selected, setSelected] = useState<number[]>([]);
+  const [selectedDevoluciones, setSelectedDevoluciones] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
 
   const turno = turnoData?.turno ?? null;
   const pagos = turnoData?.pagos ?? [];
+  const devoluciones = turnoData?.devoluciones ?? [];
   const pendientes = pagos.filter(
     (pago) => pago.estado === "Registrado" && pago.metodo !== "Efectivo"
+  );
+  const pendientesDevoluciones = devoluciones.filter(
+    (devolucion) =>
+      devolucion.estado === "Registrada" && devolucion.metodo !== "Efectivo"
   );
   const puedeEditar = can(permissions, CASH_PATHS.turno, "EDITAR");
 
@@ -40,13 +46,22 @@ export function ConciliacionPanel({
     );
   };
 
+  const toggleDevolucion = (id: number) => {
+    setSelectedDevoluciones((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   const conciliar = async () => {
     if (!turno) {
       toastError("Caja cerrada", "No hay un turno abierto.");
       return;
     }
-    if (selected.length === 0) {
-      toastInfo("Sin selección", "Selecciona al menos un pago electrónico.");
+    if (selected.length === 0 && selectedDevoluciones.length === 0) {
+      toastInfo(
+        "Sin selección",
+        "Selecciona al menos un pago o devolución electrónica."
+      );
       return;
     }
 
@@ -54,9 +69,11 @@ export function ConciliacionPanel({
     try {
       await http.patch(`/api/caja/turnos/${turno.id}/conciliar`, {
         pagoIds: selected,
+        devolucionIds: selectedDevoluciones,
       });
-      toastSuccess("Pagos conciliados", "Ya puedes cerrar el turno.");
+      toastSuccess("Conciliación registrada", "Ya puedes cerrar el turno.");
       setSelected([]);
+      setSelectedDevoluciones([]);
       await onRefresh();
     } catch (error) {
       toastError("No se pudo conciliar", getErrorMessage(error));
@@ -75,7 +92,7 @@ export function ConciliacionPanel({
     );
   }
 
-  if (pagos.length === 0) {
+  if (pagos.length === 0 && devoluciones.length === 0) {
     return (
       <Card>
         <EmptyState
@@ -98,14 +115,14 @@ export function ConciliacionPanel({
               El efectivo se concilia con el conteo físico al cerrar.
             </p>
             <p className="mt-2 text-sm font-semibold text-slate-700">
-              Pendientes electrónicos: {pendientes.length}
+              Pendientes electrónicos: {pendientes.length} pagos, {pendientesDevoluciones.length} devoluciones
             </p>
           </div>
           {puedeEditar && (
             <Button
               onClick={conciliar}
               loading={saving}
-              disabled={selected.length === 0}
+              disabled={selected.length === 0 && selectedDevoluciones.length === 0}
             >
               <CheckCircle2 size={18} aria-hidden="true" />
               Marcar seleccionados
@@ -173,6 +190,74 @@ export function ConciliacionPanel({
           })}
         </div>
       </Card>
+
+      {devoluciones.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="border-b border-slate-100 p-5">
+            <h2 className="text-lg font-bold text-slate-800">Devoluciones</h2>
+            <p className="text-sm text-slate-600">
+              Las devoluciones electrónicas también deben conciliarse con la terminal.
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {devoluciones.map((devolucion) => {
+              const esEfectivo = devolucion.metodo === "Efectivo";
+              const pendiente = devolucion.estado === "Registrada";
+              const seleccionable = puedeEditar && !esEfectivo && pendiente;
+
+              return (
+                <div
+                  key={devolucion.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    {seleccionable ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedDevoluciones.includes(devolucion.id)}
+                        onChange={() => toggleDevolucion(devolucion.id)}
+                        aria-label={`Conciliar devolución #${devolucion.id}`}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <span className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <div>
+                      <p className="font-semibold text-slate-800">
+                        Devolución #{devolucion.id} · {devolucion.metodo}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        {devolucion.motivo} · {devolucion.cajeroNombre} ·{" "}
+                        {formatDateTime(devolucion.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      tone={
+                        devolucion.estado === "Conciliada"
+                          ? "emerald"
+                          : esEfectivo
+                            ? "blue"
+                            : "amber"
+                      }
+                    >
+                      {devolucion.estado === "Conciliada"
+                        ? "Conciliada"
+                        : esEfectivo
+                          ? "Se concilia al cerrar"
+                          : "Pendiente"}
+                    </Badge>
+                    <span className="font-bold text-slate-800">
+                      {formatCurrency(devolucion.monto + devolucion.propina)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

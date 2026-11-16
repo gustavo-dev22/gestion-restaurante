@@ -4,6 +4,9 @@ export type MetodoPago = (typeof METODOS_PAGO)[number];
 export const MOVIMIENTOS_CAJA = ["Retiro", "Gasto", "Ingreso"] as const;
 export type TipoMovimientoCaja = (typeof MOVIMIENTOS_CAJA)[number];
 
+export const TIPOS_DESCUENTO = ["Porcentaje", "Monto"] as const;
+export type TipoDescuento = (typeof TIPOS_DESCUENTO)[number];
+
 export function esMetodoPago(value: unknown): value is MetodoPago {
   return typeof value === "string" && (METODOS_PAGO as readonly string[]).includes(value);
 }
@@ -12,18 +15,51 @@ export function esTipoMovimientoCaja(value: unknown): value is TipoMovimientoCaj
   return typeof value === "string" && (MOVIMIENTOS_CAJA as readonly string[]).includes(value);
 }
 
+export function esTipoDescuento(value: unknown): value is TipoDescuento {
+  return typeof value === "string" && (TIPOS_DESCUENTO as readonly string[]).includes(value);
+}
+
 export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function calcularDescuento(
+  tipo: TipoDescuento,
+  valor: number,
+  subtotal: number
+): number {
+  const base = Math.max(0, Number(subtotal) || 0);
+  const v = Math.max(0, Number(valor) || 0);
+  const monto = tipo === "Porcentaje" ? (base * v) / 100 : v;
+  return roundMoney(Math.min(base, monto));
+}
+
+export function calcularMontoItem(
+  precio: number,
+  cantidad: number,
+  subtotal: number,
+  descuentoTotal: number
+): number {
+  if (subtotal <= 0) return 0;
+  const factor = Math.max(0, subtotal - descuentoTotal) / subtotal;
+  return roundMoney(Number(precio) * Number(cantidad) * factor);
 }
 
 export interface PagoCalculo {
   metodo: string;
   monto: number;
+  propina?: number;
 }
 
 export interface MovimientoCalculo {
   tipo: string;
   monto: number;
+}
+
+export interface DevolucionCalculo {
+  metodo: string;
+  monto: number;
+  propina?: number;
 }
 
 export interface TotalesCaja {
@@ -32,6 +68,9 @@ export interface TotalesCaja {
   totalBilleteras: number;
   totalOtros: number;
   totalVentas: number;
+  totalPropinas: number;
+  totalDevoluciones: number;
+  totalCobrado: number;
   totalIngresos: number;
   totalRetiros: number;
   totalGastos: number;
@@ -41,27 +80,36 @@ export interface TotalesCaja {
 export function calcularTotalesCaja(
   pagos: PagoCalculo[],
   movimientos: MovimientoCalculo[],
-  fondoInicial: number
+  fondoInicial: number,
+  devoluciones: DevolucionCalculo[] = []
 ): TotalesCaja {
   let totalEfectivo = 0;
   let totalTarjeta = 0;
   let totalBilleteras = 0;
   let totalOtros = 0;
+  let totalVentas = 0;
+  let totalPropinas = 0;
 
   for (const pago of pagos) {
     const monto = Number(pago.monto) || 0;
+    const propina = Number(pago.propina) || 0;
+    const cobrado = monto + propina;
+
+    totalVentas += monto;
+    totalPropinas += propina;
+
     switch (pago.metodo) {
       case "Efectivo":
-        totalEfectivo += monto;
+        totalEfectivo += cobrado;
         break;
       case "Tarjeta":
-        totalTarjeta += monto;
+        totalTarjeta += cobrado;
         break;
       case "Yape/Plin":
-        totalBilleteras += monto;
+        totalBilleteras += cobrado;
         break;
       default:
-        totalOtros += monto;
+        totalOtros += cobrado;
         break;
     }
   }
@@ -77,9 +125,24 @@ export function calcularTotalesCaja(
     else if (movimiento.tipo === "Gasto") totalGastos += monto;
   }
 
-  const totalVentas = totalEfectivo + totalTarjeta + totalBilleteras + totalOtros;
+  let totalDevoluciones = 0;
+  let devolucionesEfectivo = 0;
+
+  for (const devolucion of devoluciones) {
+    const monto = Number(devolucion.monto) || 0;
+    const propina = Number(devolucion.propina) || 0;
+    totalDevoluciones += monto + propina;
+    if (devolucion.metodo === "Efectivo") devolucionesEfectivo += monto + propina;
+  }
+
+  const totalCobrado = totalVentas + totalPropinas - totalDevoluciones;
   const efectivoEsperado =
-    Number(fondoInicial) + totalEfectivo + totalIngresos - totalRetiros - totalGastos;
+    Number(fondoInicial) +
+    totalEfectivo +
+    totalIngresos -
+    totalRetiros -
+    totalGastos -
+    devolucionesEfectivo;
 
   return {
     totalEfectivo: roundMoney(totalEfectivo),
@@ -87,6 +150,9 @@ export function calcularTotalesCaja(
     totalBilleteras: roundMoney(totalBilleteras),
     totalOtros: roundMoney(totalOtros),
     totalVentas: roundMoney(totalVentas),
+    totalPropinas: roundMoney(totalPropinas),
+    totalDevoluciones: roundMoney(totalDevoluciones),
+    totalCobrado: roundMoney(totalCobrado),
     totalIngresos: roundMoney(totalIngresos),
     totalRetiros: roundMoney(totalRetiros),
     totalGastos: roundMoney(totalGastos),
@@ -111,6 +177,10 @@ export interface TurnoCajaDto {
   totalBilleteras: number;
   totalOtros: number;
   totalVentas: number;
+  totalPropinas: number;
+  totalDescuentos: number;
+  totalDevoluciones: number;
+  totalCobrado: number;
   totalIngresos: number;
   totalRetiros: number;
   totalGastos: number;
@@ -121,17 +191,32 @@ export interface TurnoCajaDto {
   cerradoPorNombre: string | null;
 }
 
+export interface PagoAplicacionDto {
+  pedidoDetalleId: number;
+  cantidad: number;
+  monto: number;
+  productoNombre: string;
+}
+
 export interface PagoCajaDto {
   id: number;
   pedidoId: number;
   mesaNumero: string;
   meseroNombre: string | null;
   cajeroNombre: string | null;
+  turnoId: number | null;
   metodo: string;
   monto: number;
+  propina: number;
   referencia: string | null;
+  codigoAutorizacion: string | null;
+  terminal: string | null;
+  montoRecibido: number | null;
+  cambio: number | null;
+  etiqueta: string | null;
   estado: string;
   createdAt: string;
+  aplicaciones: PagoAplicacionDto[];
 }
 
 export interface MovimientoCajaDto {
@@ -152,12 +237,54 @@ export interface CajaEventoDto {
   createdAt: string;
 }
 
+export interface DescuentoDto {
+  tipo: string;
+  valor: number;
+  montoAplicado: number;
+  motivo: string;
+  autorizadoPorNombre: string | null;
+  createdAt: string;
+}
+
+export interface DevolucionDetalleDto {
+  productoId: number;
+  productoNombre: string;
+  cantidad: number;
+  monto: number | null;
+}
+
+export interface DevolucionDto {
+  id: number;
+  pagoId: number | null;
+  turnoId: number;
+  metodo: string;
+  monto: number;
+  propina: number;
+  motivo: string;
+  autorizadoPorNombre: string | null;
+  cajeroNombre: string;
+  estado: string;
+  reversionStock: boolean;
+  createdAt: string;
+  detalles: DevolucionDetalleDto[];
+}
+
+export interface ComprobanteDto {
+  id: number;
+  tipo: string;
+  monto: number;
+  estado: string;
+  createdAt: string;
+}
+
 export interface TurnoCajaResumenDto {
   turno: TurnoCajaDto;
   resumen: TotalesCaja;
   pagos: PagoCajaDto[];
   movimientos: MovimientoCajaDto[];
+  devoluciones: DevolucionDto[];
   pendientesConciliar: number;
+  pendientesDevoluciones: number;
 }
 
 export interface ReporteCajaDto extends TurnoCajaResumenDto {
@@ -177,8 +304,47 @@ export interface PedidoPorCobrarDto {
   mesaNumero: string;
   meseroNombre: string | null;
   total: number;
+  totalPagado: number;
+  saldo: number;
+  estadoPago: string;
   createdAt: string;
   detalles: Array<{ nombre: string; cantidad: number }>;
+}
+
+export interface CuentaDetalleDto {
+  id: number;
+  productoId: number;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  cantidadPagada: number;
+  cantidadPendiente: number;
+  subtotal: number;
+  estado: string | null;
+}
+
+export interface CuentaPedidoDto {
+  pedido: {
+    id: number;
+    mesaNumero: string;
+    meseroNombre: string | null;
+    estado: string | null;
+    estadoPago: string;
+    subtotal: number;
+    descuentoTotal: number;
+    propinaTotal: number;
+    total: number;
+    totalPagado: number;
+    saldo: number;
+    createdAt: string;
+    pagadoEn: string | null;
+  };
+  detalles: CuentaDetalleDto[];
+  pagos: PagoCajaDto[];
+  descuento: DescuentoDto | null;
+  devoluciones: DevolucionDto[];
+  comprobante: ComprobanteDto | null;
+  esCuentaActual: boolean;
 }
 
 export interface CajaEstadoDto {

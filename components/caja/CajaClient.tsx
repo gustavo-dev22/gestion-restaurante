@@ -209,8 +209,6 @@ export function CajaClient({ permissions }: CajaClientProps) {
           turnoData={turnoData ?? null}
           pedidos={pedidos ?? []}
           pedidosLoading={pedidosLoading}
-          permissions={permissions}
-          onRefresh={refresh}
         />
       )}
     </div>

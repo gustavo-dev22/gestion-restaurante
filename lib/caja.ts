@@ -23,10 +23,17 @@ import type { SessionPayload } from "@/lib/auth/session";
 type PagoConPedido = {
   id: number;
   pedidoId: number;
+  turnoId: number | null;
   cajeroNombre: string | null;
   metodo: string;
   monto: Prisma.Decimal;
+  propina: Prisma.Decimal;
   referencia: string | null;
+  codigoAutorizacion: string | null;
+  terminal: string | null;
+  montoRecibido: Prisma.Decimal | null;
+  cambio: Prisma.Decimal | null;
+  etiqueta: string | null;
   estado: string;
   createdAt: Date;
   pedido: {
@@ -34,6 +41,14 @@ type PagoConPedido = {
     nombreMesero: string | null;
     mesa: { numero: string };
   };
+  aplicaciones: Array<{
+    pedidoDetalleId: number;
+    cantidad: number;
+    monto: Prisma.Decimal;
+    pedidoDetalle: {
+      producto: { nombre: string };
+    };
+  }>;
 };
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number {
@@ -66,6 +81,15 @@ function mapTurno(turno: TurnoCaja, resumenCalculado?: ReturnType<typeof calcula
   const totalVentas = cerrado
     ? toNumber(turno.totalVentas)
     : (resumenCalculado?.totalVentas ?? toNumber(turno.totalVentas));
+  const totalPropinas = cerrado
+    ? toNumber(turno.totalPropinas)
+    : (resumenCalculado?.totalPropinas ?? toNumber(turno.totalPropinas));
+  const totalDevoluciones = cerrado
+    ? toNumber(turno.totalDevoluciones)
+    : (resumenCalculado?.totalDevoluciones ?? toNumber(turno.totalDevoluciones));
+  const totalCobrado = cerrado
+    ? toNumber(turno.totalCobrado)
+    : (resumenCalculado?.totalCobrado ?? toNumber(turno.totalCobrado));
 
   return {
     id: turno.id,
@@ -80,6 +104,10 @@ function mapTurno(turno: TurnoCaja, resumenCalculado?: ReturnType<typeof calcula
     totalBilleteras,
     totalOtros,
     totalVentas,
+    totalPropinas,
+    totalDescuentos: toNumber(turno.totalDescuentos),
+    totalDevoluciones,
+    totalCobrado,
     totalIngresos: cerrado
       ? toNumber(turno.totalIngresos)
       : (resumenCalculado?.totalIngresos ?? 0),
@@ -106,11 +134,24 @@ function mapPago(pago: PagoConPedido): PagoCajaDto {
     mesaNumero: pago.pedido.mesa.numero,
     meseroNombre: pago.pedido.nombreMesero,
     cajeroNombre: pago.cajeroNombre,
+    turnoId: pago.turnoId,
     metodo: pago.metodo,
     monto: toNumber(pago.monto),
+    propina: toNumber(pago.propina),
     referencia: pago.referencia,
+    codigoAutorizacion: pago.codigoAutorizacion,
+    terminal: pago.terminal,
+    montoRecibido: nullableNumber(pago.montoRecibido),
+    cambio: nullableNumber(pago.cambio),
+    etiqueta: pago.etiqueta,
     estado: pago.estado,
     createdAt: pago.createdAt.toISOString(),
+    aplicaciones: pago.aplicaciones.map((aplicacion) => ({
+      pedidoDetalleId: aplicacion.pedidoDetalleId,
+      cantidad: aplicacion.cantidad,
+      monto: toNumber(aplicacion.monto),
+      productoNombre: aplicacion.pedidoDetalle.producto.nombre,
+    })),
   };
 }
 
@@ -147,6 +188,13 @@ async function getPagos(turnoId: number) {
           mesa: { select: { numero: true } },
         },
       },
+      aplicaciones: {
+        include: {
+          pedidoDetalle: {
+            select: { producto: { select: { nombre: true } } },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -159,27 +207,80 @@ async function getMovimientos(turnoId: number) {
   });
 }
 
+async function getDevoluciones(turnoId: number) {
+  return prisma.devolucion.findMany({
+    where: { turnoId, estado: { not: "Anulada" } },
+    include: {
+      detalles: {
+        include: { producto: { select: { nombre: true } } },
+        orderBy: { id: "asc" },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+function mapDevolucion(devolucion: Awaited<ReturnType<typeof getDevoluciones>>[number]) {
+  return {
+    id: devolucion.id,
+    pagoId: devolucion.pagoId,
+    turnoId: devolucion.turnoId,
+    metodo: devolucion.metodo,
+    monto: toNumber(devolucion.monto),
+    propina: toNumber(devolucion.propina),
+    motivo: devolucion.motivo,
+    autorizadoPorNombre: devolucion.autorizadoPorNombre,
+    cajeroNombre: devolucion.cajeroNombre,
+    estado: devolucion.estado,
+    reversionStock: devolucion.reversionStock,
+    createdAt: devolucion.createdAt.toISOString(),
+    detalles: devolucion.detalles.map((detalle) => ({
+      productoId: detalle.productoId,
+      productoNombre: detalle.producto.nombre,
+      cantidad: detalle.cantidad,
+      monto: nullableNumber(detalle.monto),
+    })),
+  };
+}
+
 export async function getTurnoResumen(turnoId: number): Promise<TurnoCajaResumenDto | null> {
   const turno = await prisma.turnoCaja.findUnique({ where: { id: turnoId } });
   if (!turno) return null;
 
-  const [pagos, movimientos] = await Promise.all([
+  const [pagos, movimientos, devoluciones] = await Promise.all([
     getPagos(turnoId),
     getMovimientos(turnoId),
+    getDevoluciones(turnoId),
   ]);
 
   const resumen = calcularTotalesCaja(
-    pagos.map((pago) => ({ metodo: pago.metodo, monto: toNumber(pago.monto) })),
+    pagos.map((pago) => ({
+      metodo: pago.metodo,
+      monto: toNumber(pago.monto),
+      propina: toNumber(pago.propina),
+    })),
     movimientos.map((movimiento) => ({
       tipo: movimiento.tipo,
       monto: toNumber(movimiento.monto),
     })),
-    toNumber(turno.fondoInicial)
+    toNumber(turno.fondoInicial),
+    devoluciones.map((devolucion) => ({
+      metodo: devolucion.metodo,
+      monto: toNumber(devolucion.monto),
+      propina: toNumber(devolucion.propina),
+    }))
   );
 
   const pendientesConciliar =
     turno.estado === "Abierto"
       ? pagos.filter((pago) => pago.estado === "Registrado" && pago.metodo !== "Efectivo").length
+      : 0;
+  const pendientesDevoluciones =
+    turno.estado === "Abierto"
+      ? devoluciones.filter(
+          (devolucion) =>
+            devolucion.estado === "Registrada" && devolucion.metodo !== "Efectivo"
+        ).length
       : 0;
 
   return {
@@ -187,7 +288,9 @@ export async function getTurnoResumen(turnoId: number): Promise<TurnoCajaResumen
     resumen,
     pagos: pagos.map(mapPago),
     movimientos: movimientos.map(mapMovimiento),
+    devoluciones: devoluciones.map(mapDevolucion),
     pendientesConciliar,
+    pendientesDevoluciones,
   };
 }
 
@@ -294,6 +397,9 @@ export async function getPedidosPorCobrar(): Promise<PedidoPorCobrarDto[]> {
       mesaNumero: pedido.mesa.numero,
       meseroNombre: pedido.nombreMesero,
       total: toNumber(pedido.total),
+      totalPagado: toNumber(pedido.totalPagado),
+      saldo: toNumber(pedido.saldo),
+      estadoPago: pedido.estadoPago,
       createdAt: (pedido.fecha_creacion ?? new Date()).toISOString(),
       detalles: pedido.detalles.map((detalle) => ({
         nombre: detalle.producto.nombre,
@@ -424,8 +530,9 @@ export async function registrarMovimiento(
 export async function conciliarPagos(
   actor: SessionPayload,
   turnoId: number,
-  pagoIds: unknown
-): Promise<{ conciliados: number }> {
+  pagoIds: unknown,
+  devolucionIds?: unknown
+): Promise<{ conciliados: number; devolucionesConciliadas: number }> {
   const ids = Array.from(
     new Set(
       (Array.isArray(pagoIds) ? pagoIds : [])
@@ -433,9 +540,20 @@ export async function conciliarPagos(
         .filter((id) => Number.isInteger(id) && id > 0)
     )
   );
+  const devIds = Array.from(
+    new Set(
+      (Array.isArray(devolucionIds) ? devolucionIds : [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )
+  );
 
-  if (ids.length === 0) {
-    throw new CajaError(400, "PAGOS_INVALIDOS", "Selecciona al menos un pago para conciliar.");
+  if (ids.length === 0 && devIds.length === 0) {
+    throw new CajaError(
+      400,
+      "PAGOS_INVALIDOS",
+      "Selecciona al menos un pago o devolución para conciliar."
+    );
   }
 
   return prisma.$transaction(
@@ -450,43 +568,83 @@ export async function conciliarPagos(
         throw new CajaError(409, "CAJA_CERRADA", "La caja ya está cerrada.");
       }
 
-      const pagos = await tx.pago.findMany({
-        where: { id: { in: ids }, turnoId },
-        select: { id: true, estado: true, metodo: true, monto: true },
-      });
+      let conciliados = 0;
 
-      if (pagos.length !== ids.length) {
-        throw new CajaError(
-          404,
-          "PAGOS_NO_ENCONTRADOS",
-          "Uno o más pagos no pertenecen al turno indicado."
-        );
+      if (ids.length > 0) {
+        const pagos = await tx.pago.findMany({
+          where: { id: { in: ids }, turnoId },
+          select: { id: true, estado: true, metodo: true, monto: true },
+        });
+
+        if (pagos.length !== ids.length) {
+          throw new CajaError(
+            404,
+            "PAGOS_NO_ENCONTRADOS",
+            "Uno o más pagos no pertenecen al turno indicado."
+          );
+        }
+
+        if (pagos.some((pago) => pago.estado === "Anulado")) {
+          throw new CajaError(400, "PAGO_ANULADO", "No se pueden conciliar pagos anulados.");
+        }
+
+        const resultado = await tx.pago.updateMany({
+          where: { id: { in: ids }, turnoId, estado: "Registrado" },
+          data: {
+            estado: "Conciliado",
+            conciliadoEn: new Date(),
+            conciliadoPorId: actor.sub,
+          },
+        });
+        conciliados = resultado.count;
       }
 
-      if (pagos.some((pago) => pago.estado === "Anulado")) {
-        throw new CajaError(400, "PAGO_ANULADO", "No se pueden conciliar pagos anulados.");
-      }
+      let devolucionesConciliadas = 0;
 
-      const resultado = await tx.pago.updateMany({
-        where: { id: { in: ids }, turnoId, estado: "Registrado" },
-        data: {
-          estado: "Conciliado",
-          conciliadoEn: new Date(),
-          conciliadoPorId: actor.sub,
-        },
-      });
+      if (devIds.length > 0) {
+        const devoluciones = await tx.devolucion.findMany({
+          where: { id: { in: devIds }, turnoId },
+          select: { id: true, estado: true },
+        });
+
+        if (devoluciones.length !== devIds.length) {
+          throw new CajaError(
+            404,
+            "DEVOLUCIONES_NO_ENCONTRADAS",
+            "Una o más devoluciones no pertenecen al turno indicado."
+          );
+        }
+
+        if (devoluciones.some((devolucion) => devolucion.estado === "Anulada")) {
+          throw new CajaError(
+            400,
+            "DEVOLUCION_ANULADA",
+            "No se pueden conciliar devoluciones anuladas."
+          );
+        }
+
+        const resultado = await tx.devolucion.updateMany({
+          where: { id: { in: devIds }, turnoId, estado: "Registrada" },
+          data: {
+            estado: "Conciliada",
+            conciliadoEn: new Date(),
+            conciliadoPorId: actor.sub,
+          },
+        });
+        devolucionesConciliadas = resultado.count;
+      }
 
       await tx.cajaEvento.create({
         data: {
           turnoId,
           tipo: "Conciliacion",
-          detalle: JSON.stringify({ pagoIds: ids }),
+          detalle: JSON.stringify({ pagoIds: ids, devolucionIds: devIds }),
           usuarioId: actor.sub,
           usuarioNombre: actor.nombre,
         },
       });
 
-      return { conciliados: resultado.count };
+      return { conciliados, devolucionesConciliadas };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
   );
@@ -535,14 +693,57 @@ export async function cerrarTurno(
         );
       }
 
+      const devoluciones = await tx.devolucion.findMany({
+        where: { turnoId, estado: { not: "Anulada" } },
+      });
+      const pendientesDevoluciones = devoluciones.filter(
+        (devolucion) =>
+          devolucion.estado === "Registrada" && devolucion.metodo !== "Efectivo"
+      );
+
+      if (pendientesDevoluciones.length > 0) {
+        throw new CajaError(
+          409,
+          "DEVOLUCIONES_PENDIENTES",
+          `Hay ${pendientesDevoluciones.length} devolución(es) electrónica(s) pendiente(s) de conciliar.`,
+          {
+            pendientes: pendientesDevoluciones.map((devolucion) => ({
+              id: devolucion.id,
+              metodo: devolucion.metodo,
+              monto: Number(devolucion.monto) + Number(devolucion.propina),
+            })),
+          }
+        );
+      }
+
       const movimientos = await tx.movimientoCaja.findMany({ where: { turnoId } });
+      const pedidoIds = Array.from(new Set(pagos.map((pago) => pago.pedidoId)));
+      const descuentos = pedidoIds.length
+        ? await tx.descuento.findMany({
+            where: { pedidoId: { in: pedidoIds } },
+            select: { montoAplicado: true },
+          })
+        : [];
+      const totalDescuentos = roundMoney(
+        descuentos.reduce((total, descuento) => total + Number(descuento.montoAplicado), 0)
+      );
+
       const resumen = calcularTotalesCaja(
-        pagos.map((pago) => ({ metodo: pago.metodo, monto: Number(pago.monto) })),
+        pagos.map((pago) => ({
+          metodo: pago.metodo,
+          monto: Number(pago.monto),
+          propina: Number(pago.propina),
+        })),
         movimientos.map((movimiento) => ({
           tipo: movimiento.tipo,
           monto: Number(movimiento.monto),
         })),
-        Number(turno.fondoInicial)
+        Number(turno.fondoInicial),
+        devoluciones.map((devolucion) => ({
+          metodo: devolucion.metodo,
+          monto: Number(devolucion.monto),
+          propina: Number(devolucion.propina),
+        }))
       );
 
       const diferencia = calcularDiferencia(contado, resumen.efectivoEsperado);
@@ -565,6 +766,15 @@ export async function cerrarTurno(
         },
       });
 
+      await tx.devolucion.updateMany({
+        where: { turnoId, estado: "Registrada", metodo: "Efectivo" },
+        data: {
+          estado: "Conciliada",
+          conciliadoEn: cerradoEn,
+          conciliadoPorId: actor.sub,
+        },
+      });
+
       const actualizado = await tx.turnoCaja.update({
         where: { id: turnoId },
         data: {
@@ -577,6 +787,10 @@ export async function cerrarTurno(
           totalBilleteras: resumen.totalBilleteras,
           totalOtros: resumen.totalOtros,
           totalVentas: resumen.totalVentas,
+          totalPropinas: resumen.totalPropinas,
+          totalDescuentos,
+          totalDevoluciones: resumen.totalDevoluciones,
+          totalCobrado: resumen.totalCobrado,
           totalIngresos: resumen.totalIngresos,
           totalRetiros: resumen.totalRetiros,
           totalGastos: resumen.totalGastos,
@@ -593,6 +807,13 @@ export async function cerrarTurno(
           tipo: "Cierre",
           detalle: JSON.stringify({
             resumen,
+            totalDescuentos,
+            devoluciones: devoluciones.map((devolucion) => ({
+              id: devolucion.id,
+              monto: Number(devolucion.monto),
+              propina: Number(devolucion.propina),
+              metodo: devolucion.metodo,
+            })),
             efectivoContado: contado,
             diferencia,
             justificacion: razon || null,

@@ -25,6 +25,9 @@ interface DetalleResumen {
 
 interface PedidoResumen {
   total: number | string;
+  totalPagado: number | string;
+  saldo: number | string;
+  estadoPago: string;
   mesa: { numero: string };
   detalles: DetalleResumen[];
 }
@@ -189,9 +192,25 @@ export default function ResumenPedido() {
           ))}
         </div>
 
-        <div className="mt-6 flex items-end justify-between border-t border-slate-200 pt-6">
-          <span className="font-medium text-slate-600">Total a pagar</span>
-          <span className="text-3xl font-black text-blue-700">{formatCurrency(pedido.total)}</span>
+        <div className="mt-6 border-t border-slate-200 pt-6">
+          <div className="mb-2 flex justify-between text-sm text-slate-600">
+            <span>Total</span>
+            <span className="font-semibold text-slate-800">
+              {formatCurrency(pedido.total)}
+            </span>
+          </div>
+          <div className="mb-4 flex justify-between text-sm text-slate-600">
+            <span>Pagado</span>
+            <span className="font-semibold text-emerald-700">
+              {formatCurrency(pedido.totalPagado)}
+            </span>
+          </div>
+          <div className="flex items-end justify-between">
+            <span className="font-medium text-slate-600">Saldo a pagar</span>
+            <span className="text-3xl font-black text-blue-700">
+              {formatCurrency(pedido.saldo)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -220,7 +239,7 @@ export default function ResumenPedido() {
           size="lg"
           className="flex-1"
           onClick={abrirPago}
-          disabled={cajaAbierta === false}
+          disabled={cajaAbierta === false || Number(pedido.saldo) <= 0}
         >
           <Receipt size={20} /> Pagar cuenta
         </Button>
@@ -251,7 +270,7 @@ export default function ResumenPedido() {
         open={payOpen}
         onClose={() => setPayOpen(false)}
         title="Finalizar pedido"
-        description={`Total a cobrar: ${formatCurrency(pedido.total)}`}
+        description={`Saldo a cobrar: ${formatCurrency(pedido.saldo)}`}
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setPayOpen(false)} disabled={paying}>

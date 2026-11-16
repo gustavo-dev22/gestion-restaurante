@@ -6,11 +6,11 @@ export const CASH_PATHS = {
   historial: "/caja/historial",
 } as const;
 
-export type CashAction = "LISTAR" | "CREAR" | "EDITAR" | "EXPORTAR";
+export type CashAction = "LISTAR" | "CREAR" | "EDITAR" | "EXPORTAR" | "APROBAR";
 
 export type CashPermissions = Record<string, CashAction[]>;
 
-const CASH_ACTIONS: CashAction[] = ["LISTAR", "CREAR", "EDITAR", "EXPORTAR"];
+const CASH_ACTIONS: CashAction[] = ["LISTAR", "CREAR", "EDITAR", "EXPORTAR", "APROBAR"];
 const CASH_PATH_VALUES = new Set<string>(Object.values(CASH_PATHS));
 
 export function normalizeCashPath(url?: string | null): string | null {

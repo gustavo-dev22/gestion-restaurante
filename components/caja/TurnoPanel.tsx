@@ -150,7 +150,8 @@ export function TurnoPanel({
         <Card className="p-5">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Pendientes de conciliar</p>
           <p className="mt-2 text-2xl font-black text-slate-800">
-            {turnoData?.pendientesConciliar ?? 0}
+            {(turnoData?.pendientesConciliar ?? 0) +
+              (turnoData?.pendientesDevoluciones ?? 0)}
           </p>
         </Card>
       </div>
@@ -224,6 +225,18 @@ export function TurnoPanel({
           </p>
           <p className="text-sm text-slate-600">
             Gastos: <span className="font-bold text-slate-800">{formatCurrency(resumen?.totalGastos ?? 0)}</span>
+          </p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
+          <p className="text-sm text-slate-600">
+            Propinas: <span className="font-bold text-slate-800">{formatCurrency(resumen?.totalPropinas ?? 0)}</span>
+          </p>
+          <p className="text-sm text-slate-600">
+            Devoluciones: <span className="font-bold text-slate-800">{formatCurrency(resumen?.totalDevoluciones ?? 0)}</span>
+          </p>
+          <p className="text-sm text-slate-600">
+            Total cobrado: <span className="font-bold text-slate-800">{formatCurrency(resumen?.totalCobrado ?? 0)}</span>
           </p>
         </div>
       </Card>

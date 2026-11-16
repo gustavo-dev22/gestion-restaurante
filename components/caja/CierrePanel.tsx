@@ -42,6 +42,7 @@ export function CierrePanel({
   const resumen = turnoData?.resumen;
   const esperado = resumen?.efectivoEsperado ?? 0;
   const pendientes = turnoData?.pendientesConciliar ?? 0;
+  const pendientesDevoluciones = turnoData?.pendientesDevoluciones ?? 0;
   const contadoNumero = Number(contado);
   const diferencia =
     contado.trim() === "" || !Number.isFinite(contadoNumero)
@@ -54,6 +55,7 @@ export function CierrePanel({
     abierto &&
     puedeEditar &&
     pendientes === 0 &&
+    pendientesDevoluciones === 0 &&
     contado.trim() !== "" &&
     Number.isFinite(contadoNumero) &&
     contadoNumero >= 0 &&
@@ -63,7 +65,7 @@ export function CierrePanel({
     setError(null);
     if (!puedeCerrar) {
       setError(
-        pendientes > 0
+        pendientes > 0 || pendientesDevoluciones > 0
           ? "Conciliación pendiente: no puedes cerrar el turno todavía."
           : "Completa el efectivo contado y la justificación si hay diferencia."
       );
@@ -125,6 +127,24 @@ export function CierrePanel({
             </dd>
           </div>
           <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+            <dt className="text-sm font-medium text-slate-600">Propinas</dt>
+            <dd className="font-bold text-slate-800">
+              {formatCurrency(resumen?.totalPropinas ?? 0)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+            <dt className="text-sm font-medium text-slate-600">Devoluciones</dt>
+            <dd className="font-bold text-slate-800">
+              {formatCurrency(resumen?.totalDevoluciones ?? 0)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+            <dt className="text-sm font-medium text-slate-600">Total cobrado</dt>
+            <dd className="font-bold text-slate-800">
+              {formatCurrency(resumen?.totalCobrado ?? 0)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
             <dt className="text-sm font-medium text-slate-600">
               Ingresos - retiros - gastos
             </dt>
@@ -151,10 +171,10 @@ export function CierrePanel({
           Cajero: {turno.cajeroNombre}
         </p>
 
-        {pendientes > 0 && (
+        {(pendientes > 0 || pendientesDevoluciones > 0) && (
           <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
-            Hay {pendientes} pago(s) electrónico(s) pendiente(s) de conciliar.
-            Concílialos antes de cerrar.
+            Hay {pendientes} pago(s) y {pendientesDevoluciones} devolución(es)
+            electrónica(s) pendiente(s) de conciliar. Concílialos antes de cerrar.
           </p>
         )}
 
