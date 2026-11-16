@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Banknote, CheckCircle2, Lock, Plus, Receipt, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -265,6 +266,12 @@ export function TurnoPanel({
                     {pago.estado}
                   </Badge>
                   <span className="font-bold text-slate-800">{formatCurrency(pago.monto)}</span>
+                  <Link
+                    href={`/caja/pedidos/${pago.pedidoId}`}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                  >
+                    Ver cuenta
+                  </Link>
                 </div>
               </div>
             ))}

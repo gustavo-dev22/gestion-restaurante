@@ -499,6 +499,11 @@ export function CuentaPedidoClient({
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 p-5">
           <h2 className="text-lg font-bold text-slate-800">Pagos</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {puedeAprobar
+              ? "Anular solo aplica a pagos del turno abierto. Si el turno ya cerró, usa Devolución."
+              : "Anular y devolver requieren permiso de Supervisor o Administrador."}
+          </p>
         </div>
         {cuenta.pagos.length === 0 ? (
           <EmptyState icon={Banknote} title="Sin pagos" description="Registra el primer pago de esta cuenta." />
