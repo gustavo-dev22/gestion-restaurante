@@ -23,6 +23,7 @@ import { toastSuccess, toastError, toastInfo } from "@/components/ui/Toast";
 import { http, getErrorMessage } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { useVisibilityPolling } from "@/lib/useVisibilityPolling";
+import { setMesaGuardada, useMesaGuardada } from "@/lib/cliente-mesa-storage";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -39,7 +40,7 @@ function ChangeTableControl({
   const [open, setOpen] = useState(false);
 
   const cambiarMesa = () => {
-    window.localStorage.removeItem("gr-cliente-mesa-id");
+    setMesaGuardada(null);
     setOpen(false);
     router.push("/cliente/menu");
   };
@@ -176,10 +177,14 @@ export default function MenuDigitalPage({ params }: PageProps) {
   const [calling, setCalling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [llamado, setLlamado] = useState<Llamado | null>(null);
+  const mesaGuardada = useMesaGuardada();
+  const router = useRouter();
 
   useEffect(() => {
-    if (mesaId) window.localStorage.setItem("gr-cliente-mesa-id", mesaId);
-  }, [mesaId]);
+    if (!loading && estadoMesa === "Libre" && mesaId) {
+      setMesaGuardada(mesaId);
+    }
+  }, [estadoMesa, loading, mesaId]);
 
   const cargarProductos = useCallback(async () => {
     const data = await http.get<Producto[]>("/api/public/productos", { skipAuthRedirect: true });
@@ -396,6 +401,8 @@ export default function MenuDigitalPage({ params }: PageProps) {
     }
   };
 
+  const esMesaGuardada = mesaGuardada === mesaId;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-4">
@@ -413,6 +420,37 @@ export default function MenuDigitalPage({ params }: PageProps) {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (pedidoActivo && !esMesaGuardada) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-white p-8 text-center">
+        <ChangeTableControl currentMesa={numeroMesa || pedidoActivo.mesa.numero} hasOrder={false} />
+        <div className="mb-6 rounded-full bg-amber-100 p-6">
+          <AlertCircle size={60} className="text-amber-600" aria-hidden="true" />
+        </div>
+        <h1 className="mb-2 text-3xl font-black uppercase italic text-slate-800">
+          Mesa {numeroMesa || pedidoActivo.mesa.numero}
+        </h1>
+        <div className="mb-6 rounded-full bg-amber-100 px-4 py-1 text-xs font-black uppercase tracking-widest text-amber-700">
+          Ocupada por otro cliente
+        </div>
+        <p className="mb-8 max-w-sm font-medium text-slate-600">
+          Esta mesa ya está siendo atendida por otro cliente. Para evitar confusiones, selecciona
+          tu propia mesa o escanea el QR que está en tu mesa.
+        </p>
+        <Button
+          type="button"
+          size="lg"
+          onClick={() => {
+            setMesaGuardada(null);
+            router.push("/cliente/menu");
+          }}
+        >
+          Elegir mi mesa
+        </Button>
       </div>
     );
   }

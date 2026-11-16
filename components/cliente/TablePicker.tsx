@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronLeft, Home, Loader2, QrCode, Utensils } from "lucide-react";
+import { ArrowRight, ChevronLeft, Home, Loader2, Lock, QrCode, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { http, getErrorMessage } from "@/lib/http";
-
-const MESA_STORAGE_KEY = "gr-cliente-mesa-id";
+import { setMesaGuardada, useMesaGuardada } from "@/lib/cliente-mesa-storage";
+import { cn } from "@/lib/utils";
 
 interface MesaPublica {
   id: number;
@@ -28,14 +28,13 @@ export default function TablePicker({ mode }: TablePickerProps) {
   const [mesas, setMesas] = useState<MesaPublica[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mesaGuardada = useMesaGuardada();
 
   useEffect(() => {
-    if (mode !== "orden") return;
-    const guardada = window.localStorage.getItem(MESA_STORAGE_KEY);
-    if (guardada && /^\d+$/.test(guardada)) {
-      router.replace(`/cliente/mesa/${guardada}`);
+    if (mode === "orden" && mesaGuardada && /^\d+$/.test(mesaGuardada)) {
+      router.replace(`/cliente/mesa/${mesaGuardada}`);
     }
-  }, [mode, router]);
+  }, [mesaGuardada, mode, router]);
 
   useEffect(() => {
     let active = true;
@@ -59,7 +58,7 @@ export default function TablePicker({ mode }: TablePickerProps) {
   }, []);
 
   const abrirMesa = (mesaId: number) => {
-    window.localStorage.setItem(MESA_STORAGE_KEY, String(mesaId));
+    setMesaGuardada(String(mesaId));
     router.push(`/cliente/mesa/${mesaId}`);
   };
 
@@ -125,32 +124,57 @@ export default function TablePicker({ mode }: TablePickerProps) {
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-3">
-              {mesas.map((mesa) => (
-                <button
-                  key={mesa.id}
-                  type="button"
-                  onClick={() => abrirMesa(mesa.id)}
-                  aria-label={`Abrir mesa ${mesa.numero}`}
-                  className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  <div className="min-w-0">
-                    <p className="text-lg font-black text-slate-800">Mesa {mesa.numero}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {mesa.zona || "Salón"} · {mesa.capacidad ?? 2} personas
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-2">
-                    <Badge tone={mesa.estado === "Libre" ? "emerald" : "amber"}>
-                      {mesa.estado}
-                    </Badge>
-                    <ArrowRight
-                      size={16}
-                      className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-600"
-                      aria-hidden="true"
-                    />
-                  </div>
-                </button>
-              ))}
+              {mesas.map((mesa) => {
+                const esMia = mesaGuardada === String(mesa.id);
+                const bloqueada = mesa.estado !== "Libre" && !esMia;
+
+                return (
+                  <button
+                    key={mesa.id}
+                    type="button"
+                    disabled={bloqueada}
+                    onClick={() => abrirMesa(mesa.id)}
+                    aria-label={
+                      bloqueada
+                        ? `Mesa ${mesa.numero} no disponible para este cliente`
+                        : `Abrir mesa ${mesa.numero}`
+                    }
+                    className={cn(
+                      "group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                      bloqueada
+                        ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-70"
+                        : "hover:border-blue-400 hover:shadow-md"
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-lg font-black text-slate-800">Mesa {mesa.numero}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {mesa.zona || "Salón"} · {mesa.capacidad ?? 2} personas
+                      </p>
+                      {bloqueada && (
+                        <p className="mt-1 text-xs font-semibold text-rose-600">
+                          No disponible para este cliente
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <Badge tone={esMia && mesa.estado !== "Libre" ? "blue" : mesa.estado === "Libre" ? "emerald" : "amber"}>
+                        {esMia && mesa.estado !== "Libre" ? "Tu mesa" : mesa.estado}
+                      </Badge>
+                      {bloqueada ? (
+                        <Lock size={16} className="text-slate-400" aria-hidden="true" />
+                      ) : (
+                        <ArrowRight
+                          size={16}
+                          className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-600"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </Card>
