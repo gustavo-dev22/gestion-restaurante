@@ -8,72 +8,92 @@ datasource db {
 }
 
 model Categoria {
-  id             Int        @id(map: "PK__Categori__3213E83F70DA985B") @default(autoincrement())
-  nombre         String     @db.NVarChar(100)
-  descripcion    String?    @db.NVarChar(255)
-  icono          String?    @db.NVarChar(50)
-  activo         Boolean?   @default(true, map: "DF__Categoria__activ__37A5467C")
-  fecha_creacion DateTime?  @default(dbgenerated("GETDATE()"), map: "DF__Categoria__fecha__38996AB5")
-  area           String?    @default("Cocina", map: "DF__Categorias__area__5EBF139D") @db.VarChar(20)
-  productos      Producto[]
+  id                 Int        @id(map: "PK__Categori__3213E83F70DA985B") @default(autoincrement())
+  nombre             String     @db.NVarChar(100)
+  descripcion        String?    @db.NVarChar(255)
+  icono              String?    @db.NVarChar(50)
+  activo             Boolean?   @default(true, map: "DF__Categoria__activ__37A5467C")
+  fecha_creacion     DateTime?  @default(dbgenerated("GETDATE()"), map: "DF__Categoria__fecha__38996AB5")
+  area               String?    @default("Cocina", map: "DF__Categorias__area__5EBF139D") @db.VarChar(20)
+  eliminadoEn        DateTime?  @db.DateTime2
+  eliminadoPorId     String?    @db.NVarChar(100)
+  eliminadoPorNombre String?    @db.NVarChar(150)
+  motivoEliminacion  String?    @db.NVarChar(300)
+  productos          Producto[]
 
   @@map("Categorias")
 }
 
 model Producto {
-  id                 Int                 @id(map: "PK__Producto__3213E83F276ADAA2") @default(autoincrement())
-  nombre             String              @db.NVarChar(150)
-  descripcion        String?             @db.NVarChar(Max)
-  precio             Decimal             @db.Decimal(10, 2)
-  imagen_url         String?             @db.NVarChar(Max)
-  stock              Int?                @default(0, map: "DF__Productos__stock__3B75D760")
+  id                 Int                       @id(map: "PK__Producto__3213E83F276ADAA2") @default(autoincrement())
+  nombre             String                    @db.NVarChar(150)
+  descripcion        String?                   @db.NVarChar(Max)
+  precio             Decimal                   @db.Decimal(10, 2)
+  imagen_url         String?                   @db.NVarChar(Max)
+  stock              Int?                      @default(0, map: "DF__Productos__stock__3B75D760")
   categoriaId        Int
-  activo             Boolean?            @default(true, map: "DF__Productos__activ__3C69FB99")
-  fecha_creacion     DateTime?           @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
+  activo             Boolean?                  @default(true, map: "DF__Productos__activ__3C69FB99")
+  fecha_creacion     DateTime?                 @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
   detallesPedido     PedidoDetalle[]
   movimientosStock   MovimientoStock[]
   devolucionDetalles DevolucionDetalle[]
-  categoria          Categoria           @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
+  eliminadoEn        DateTime?                 @db.DateTime2
+  eliminadoPorId     String?                   @db.NVarChar(100)
+  eliminadoPorNombre String?                   @db.NVarChar(150)
+  motivoEliminacion  String?                   @db.NVarChar(300)
+  historialPrecios   ProductoPrecioHistorial[]
+  categoria          Categoria                 @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
 
   @@map("Productos")
 }
 
 model Mesa {
-  id             Int       @id(map: "PK__Mesas__3213E83F474B4572") @default(autoincrement())
-  numero         String    @db.NVarChar(20)
-  capacidad      Int?      @default(2, map: "DF__Mesas__capacidad__412EB0B6")
-  zona           String?   @db.NVarChar(50)
-  estado         String?   @default("Libre", map: "DF__Mesas__estado__4222D4EF") @db.NVarChar(20)
-  activo         Boolean?  @default(true, map: "DF__Mesas__activo__4316F928")
-  fecha_creacion DateTime? @default(dbgenerated("GETDATE()"), map: "DF__Mesas__fecha_cre__440B1D61")
-  pedidos        Pedido[]
-  reservas       Reserva[] @relation("MesaAReservas")
+  id                 Int             @id(map: "PK__Mesas__3213E83F474B4572") @default(autoincrement())
+  numero             String          @db.NVarChar(20)
+  capacidad          Int?            @default(2, map: "DF__Mesas__capacidad__412EB0B6")
+  zona               String?         @db.NVarChar(50)
+  estado             String?         @default("Libre", map: "DF__Mesas__estado__4222D4EF") @db.NVarChar(20)
+  activo             Boolean?        @default(true, map: "DF__Mesas__activo__4316F928")
+  fecha_creacion     DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Mesas__fecha_cre__440B1D61")
+  eliminadoEn        DateTime?       @db.DateTime2
+  eliminadoPorId     String?         @db.NVarChar(100)
+  eliminadoPorNombre String?         @db.NVarChar(150)
+  motivoEliminacion  String?         @db.NVarChar(300)
+  pedidos            Pedido[]
+  reservas           Reserva[]       @relation("MesaAReservas")
+  llamados           LlamadoMesero[]
 
   @@map("Mesas")
 }
 
 model Pedido {
-  id             Int             @id(map: "PK__Pedidos__3213E83F1137F0B1") @default(autoincrement())
-  mesaId         Int
-  usuarioId      String?         @db.UniqueIdentifier
-  total          Decimal?        @default(0.00, map: "DF__Pedidos__total__46E78A0C") @db.Decimal(10, 2)
-  estado         String?         @default("Pendiente", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(20)
-  fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
-  pagadoEn       DateTime?       @db.DateTime2
-  subtotal       Decimal         @default(0) @db.Decimal(10, 2)
-  descuentoTotal Decimal         @default(0) @db.Decimal(10, 2)
-  propinaTotal   Decimal         @default(0) @db.Decimal(10, 2)
-  totalPagado    Decimal         @default(0) @db.Decimal(10, 2)
-  saldo          Decimal         @default(0) @db.Decimal(10, 2)
-  estadoPago     String          @default("Pendiente") @db.NVarChar(20)
-  nombreMesero   String?         @db.NVarChar(100)
-  metodoPago     String?         @db.NVarChar(30)
-  detalles       PedidoDetalle[]
-  pagos          Pago[]
-  descuento      Descuento?
-  devoluciones   Devolucion[]
-  comprobante    Comprobante?
-  mesa           Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
+  id               Int             @id(map: "PK__Pedidos__3213E83F1137F0B1") @default(autoincrement())
+  mesaId           Int
+  usuarioId        String?         @db.UniqueIdentifier
+  total            Decimal         @default(0.00, map: "DF__Pedidos__total__46E78A0C") @db.Decimal(10, 2)
+  estado           String          @default("BORRADOR", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(30)
+  motivoAnulacion  String?         @db.NVarChar(500)
+  anuladoEn        DateTime?       @db.DateTime2
+  anuladoPorId     String?         @db.NVarChar(100)
+  anuladoPorNombre String?         @db.NVarChar(150)
+  cerradoEn        DateTime?       @db.DateTime2
+  fecha_creacion   DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
+  pagadoEn         DateTime?       @db.DateTime2
+  subtotal         Decimal         @default(0) @db.Decimal(10, 2)
+  descuentoTotal   Decimal         @default(0) @db.Decimal(10, 2)
+  propinaTotal     Decimal         @default(0) @db.Decimal(10, 2)
+  totalPagado      Decimal         @default(0) @db.Decimal(10, 2)
+  saldo            Decimal         @default(0) @db.Decimal(10, 2)
+  estadoPago       String          @default("Pendiente") @db.NVarChar(20)
+  origen           String          @default("POS") @db.NVarChar(20)
+  nombreMesero     String?         @db.NVarChar(100)
+  metodoPago       String?         @db.NVarChar(30)
+  detalles         PedidoDetalle[]
+  pagos            Pago[]
+  descuento        Descuento?
+  devoluciones     Devolucion[]
+  comprobante      Comprobante?
+  mesa             Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
 
   @@map("Pedidos")
 }
@@ -85,7 +105,7 @@ model PedidoDetalle {
   cantidad           Int
   precio_unitario    Decimal             @db.Decimal(10, 2)
   // subtotal es una columna calculada en SQL Server; no se gestiona desde Prisma.
-  estado             String?             @db.VarChar(20)
+  estado             String              @default("PENDIENTE") @db.NVarChar(20)
   pedido             Pedido              @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
   producto           Producto            @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")
   aplicaciones       PagoAplicacion[]
@@ -99,9 +119,10 @@ model Reserva {
   clienteNombre   String   @db.NVarChar(100)
   clienteTelefono String   @db.NVarChar(20)
   fechaReserva    DateTime @db.DateTime
+  franjaInicio    DateTime @db.DateTime2
   numPersonas     Int
   mesaId          Int
-  estado          String   @default("Confirmada")
+  estado          String   @default("Confirmada") @db.NVarChar(20)
   fecha_creacion  DateTime @default(dbgenerated("GETDATE()")) @db.DateTime
   mesa            Mesa     @relation("MesaAReservas", fields: [mesaId], references: [id])
 
@@ -246,17 +267,21 @@ model Descuento {
 }
 
 model Cupon {
-  id          Int         @id @default(autoincrement())
-  codigo      String      @unique @db.NVarChar(50)
-  tipo        String      @db.NVarChar(20)
-  valor       Decimal     @db.Decimal(10, 2)
-  validoDesde DateTime?   @db.DateTime2
-  validoHasta DateTime?   @db.DateTime2
-  usosMaximos Int?
-  usos        Int         @default(0)
-  activo      Boolean     @default(true)
-  createdAt   DateTime    @default(now()) @db.DateTime2
-  descuentos  Descuento[]
+  id                 Int         @id @default(autoincrement())
+  codigo             String      @unique @db.NVarChar(50)
+  tipo               String      @db.NVarChar(20)
+  valor              Decimal     @db.Decimal(10, 2)
+  validoDesde        DateTime?   @db.DateTime2
+  validoHasta        DateTime?   @db.DateTime2
+  usosMaximos        Int?
+  usos               Int         @default(0)
+  activo             Boolean     @default(true)
+  eliminadoEn        DateTime?   @db.DateTime2
+  eliminadoPorId     String?     @db.NVarChar(100)
+  eliminadoPorNombre String?     @db.NVarChar(150)
+  motivoEliminacion  String?     @db.NVarChar(300)
+  createdAt          DateTime    @default(now()) @db.DateTime2
+  descuentos         Descuento[]
 
   @@map("Cupones")
 }
@@ -335,12 +360,14 @@ model Comprobante {
 }
 
 model IdempotencyKey {
-  id        String   @id @db.NVarChar(64)
-  key       String   @unique @db.NVarChar(100)
-  status    Int      @default(0)
-  response  String?  @db.NVarChar(Max)
-  createdAt DateTime @default(now()) @db.DateTime2
-  expiresAt DateTime @db.DateTime2
+  id          String   @id @db.NVarChar(64)
+  key         String   @unique @db.NVarChar(100)
+  scope       String   @default("legacy") @db.NVarChar(150)
+  requestHash String?  @db.NVarChar(64)
+  status      Int      @default(0)
+  response    String?  @db.NVarChar(Max)
+  createdAt   DateTime @default(now()) @db.DateTime2
+  expiresAt   DateTime @db.DateTime2
 
   @@index([expiresAt])
   @@map("Idempotency_Keys")
@@ -449,4 +476,35 @@ model UsuarioPermiso {
   @@id([usuarioId, permisoId])
   @@index([permisoId])
   @@map("UsuarioPermisos")
+}
+
+model ProductoPrecioHistorial {
+  id             Int      @id @default(autoincrement())
+  productoId     Int
+  precioAnterior Decimal? @db.Decimal(10, 2)
+  precioNuevo    Decimal  @db.Decimal(10, 2)
+  motivo         String?  @db.NVarChar(300)
+  usuarioId      String?  @db.NVarChar(100)
+  usuarioNombre  String?  @db.NVarChar(150)
+  createdAt      DateTime @default(now()) @db.DateTime2
+  producto       Producto @relation(fields: [productoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([productoId, createdAt])
+  @@map("ProductoPrecioHistorial")
+}
+
+model LlamadoMesero {
+  id                Int       @id @default(autoincrement())
+  mesaId            Int
+  usuarioId         String?   @db.UniqueIdentifier
+  nombreMesero      String?   @db.NVarChar(100)
+  estado            String    @default("PENDIENTE") @db.NVarChar(20)
+  creadoEn          DateTime  @default(now()) @db.DateTime2
+  atendidoEn        DateTime? @db.DateTime2
+  atendidoPorId     String?   @db.UniqueIdentifier
+  atendidoPorNombre String?   @db.NVarChar(150)
+  mesa              Mesa      @relation(fields: [mesaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([mesaId, estado, creadoEn])
+  @@map("LlamadosMesero")
 }

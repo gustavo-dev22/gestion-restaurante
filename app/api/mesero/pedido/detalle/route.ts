@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { revalidateTag } from "next/cache";
 import { withIdempotency } from "@/lib/idempotency";
 import { actorFromSession, auditLogSafe, getAuditContext } from "@/lib/audit";
+import { parseJson, detalleSchema } from "@/lib/api-validation";
 
 export async function POST(request: Request) {
   return withIdempotency(request, async () => {
@@ -14,13 +15,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const pedidoId = Number(body?.pedidoId);
-    const items = Array.isArray(body?.items) ? body.items : [];
-
-    if (!pedidoId || Number.isNaN(pedidoId)) {
-      return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
-    }
+    const parsed = await parseJson(request, detalleSchema);
+    if (!parsed.success) return parsed.response;
+    const { pedidoId, items } = parsed.data;
 
     const pedido = await prisma.pedido.findUnique({
       where: { id: pedidoId },
@@ -39,25 +36,24 @@ export async function POST(request: Request) {
       );
     }
 
-    if (pedido.estado !== "Pendiente") {
+    if (
+      !["BORRADOR", "CONFIRMADO", "EN_COCINA", "PARCIALMENTE_LISTO", "LISTO"].includes(
+        pedido.estado
+      )
+    ) {
       return NextResponse.json(
-        { error: "ESTADO_INVALIDO", message: "Solo se pueden agregar platos a pedidos pendientes." },
-        { status: 400 }
+        {
+          error: "ESTADO_INVALIDO",
+          message: "Solo se pueden agregar platos antes de servir o cobrar el pedido.",
+        },
+        { status: 409 }
       );
     }
 
-    const itemsNormalizados: Array<{ productoId: number; cantidad: number }> = (
-      items as Array<{ id?: unknown; cantidad?: unknown }>
-    )
-      .map((item) => ({
-        productoId: Number(item.id),
-        cantidad: Math.floor(Number(item.cantidad)),
-      }))
-      .filter((item) => item.productoId > 0 && item.cantidad > 0);
-
-    if (itemsNormalizados.length === 0) {
-      return NextResponse.json({ error: "No hay productos válidos" }, { status: 400 });
-    }
+    const itemsNormalizados = items.map((item) => ({
+      productoId: item.id,
+      cantidad: item.cantidad,
+    }));
 
     await prisma.$transaction(async (tx) => {
       let totalAgregado = 0;
@@ -99,7 +95,7 @@ export async function POST(request: Request) {
             data: {
               cantidad: nuevaCantidad,
               precio_unitario: precio,
-              estado: "Pendiente",
+              estado: "PENDIENTE",
             },
           });
         } else {
@@ -110,7 +106,7 @@ export async function POST(request: Request) {
               productoId: item.productoId,
               cantidad: item.cantidad,
               precio_unitario: precio,
-              estado: "Pendiente",
+              estado: "PENDIENTE",
             },
           });
         }
@@ -124,6 +120,7 @@ export async function POST(request: Request) {
           subtotal: { increment: totalAgregado },
           saldo: { increment: totalAgregado },
           estadoPago: 'Pendiente',
+          estado: 'CONFIRMADO',
         },
       });
     });

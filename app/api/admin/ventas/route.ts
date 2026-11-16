@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
     const ventas = await prisma.pedido.findMany({
       where: {
-        estado: 'Pagado',
+        estado: { in: ['PAGADO', 'CERRADO'] },
         fecha_creacion: {
           gte: fechaInicio,
           lte: fechaFin

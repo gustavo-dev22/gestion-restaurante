@@ -32,7 +32,7 @@ export interface HorasPicoReport {
 
 export async function getHorasPicoReport(): Promise<HorasPicoReport> {
   const pedidos = await prisma.pedido.findMany({
-    where: { estado: { notIn: ["Llamado", "Atendido", "Expirado"] } },
+    where: { estado: { not: "ANULADO" } },
     select: { fecha_creacion: true, total: true },
   });
 
@@ -83,7 +83,7 @@ export interface IngenieriaReport {
 export async function getIngenieriaReport(page = 1): Promise<IngenieriaReport> {
   const ventas = await prisma.pedidoDetalle.groupBy({
     by: ["productoId"],
-    where: { pedido: { estado: { notIn: ["Expirado"] } } },
+    where: { pedido: { estado: { not: "ANULADO" } } },
     _sum: { cantidad: true },
   });
 
@@ -216,7 +216,7 @@ export async function getPersonalReport(page = 1): Promise<PersonalReport> {
     by: ["usuarioId", "nombreMesero"],
     _sum: { total: true },
     _count: { id: true },
-    where: { estado: "Pagado", NOT: { usuarioId: null } },
+    where: { estado: { in: ["PAGADO", "CERRADO"] }, NOT: { usuarioId: null } },
   });
 
   const rankingCompleto = estadisticas

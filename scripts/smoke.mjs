@@ -243,7 +243,7 @@ async function main() {
       token: adminToken,
       body: { pedidoId },
     });
-    check("Pedido confirmado (Pendiente)", confirmado.status === 200 && confirmado.data?.estado === "Pendiente");
+    check("Pedido confirmado (CONFIRMADO)", confirmado.status === 200 && confirmado.data?.estado === "CONFIRMADO");
 
     // 4.1) Idempotencia de comanda: el mismo key no debe duplicar stock ni cantidades
     const claveIdempotencia = `smoke-${Date.now()}`;
@@ -297,7 +297,7 @@ async function main() {
       await api("/api/cocina/comandas", {
         method: "PATCH",
         token: adminToken,
-        body: { detalleId: item.id, nuevoEstado: "Listo" },
+        body: { detalleId: item.id, nuevoEstado: "LISTO" },
       });
     }
 
@@ -311,9 +311,9 @@ async function main() {
     const atencion = await api("/api/mesero/llamados", {
       method: "PATCH",
       token: adminToken,
-      body: { pedidoId: llamadoId },
+      body: { llamadoId },
     });
-    check("Llamado atendido", atencion.status === 200 && atencion.data?.estado === "Atendido");
+    check("Llamado atendido", atencion.status === 200 && atencion.data?.estado === "ATENDIDO");
 
     const cuentaInicial = await api(`/api/caja/pedidos/${pedidoId}/cuenta`, {
       token: adminToken,
@@ -360,6 +360,7 @@ async function main() {
         propina: 5,
         montoRecibido: primerMonto + 20,
       },
+      idempotencyKey: `smoke-pago-1-${Date.now()}`,
     });
     const primerPagoId = primerPago.data?.pagoId ?? null;
     check(
@@ -396,6 +397,7 @@ async function main() {
         referencia: "SMOKE-REF",
         codigoAutorizacion: "SMOKE-AUTH",
       },
+      idempotencyKey: `smoke-pago-2-${Date.now()}`,
     });
     pagoId = segundoPago.data?.pagoId ?? null;
     check(
@@ -408,7 +410,7 @@ async function main() {
     const pedidoFinal = await prisma.pedido.findUnique({ where: { id: pedidoId } });
     check(
       "Pedido queda Pagado",
-      pedidoFinal?.estado === "Pagado" && pedidoFinal?.estadoPago === "Pagado"
+      pedidoFinal?.estado === "PAGADO" && pedidoFinal?.estadoPago === "Pagado"
     );
     check("Método de pago persistido", pedidoFinal?.metodoPago === "Tarjeta");
     const mesaFinal = await prisma.mesa.findUnique({ where: { id: mesaId } });
@@ -483,6 +485,7 @@ async function main() {
         motivo: "Devolución de prueba smoke",
         items: [{ pedidoDetalleId: detalleDevolucion.id, cantidad: 1 }],
       },
+      idempotencyKey: `smoke-devolucion-${Date.now()}`,
     });
     devolucionId = devolucion.data?.cuenta?.devoluciones?.[0]?.id ?? null;
     const stockTrasDevolucion = Number(
@@ -539,6 +542,15 @@ async function main() {
         cierre.data?.turno?.estado === "Cerrado" &&
         Number(cierre.data?.turno?.diferencia) === 0
     );
+
+    const pedidoCerrado = await prisma.pedido.findUnique({ where: { id: pedidoId } });
+    check(
+      "Pedido pagado pasa a CERRADO al cerrar caja",
+      pedidoCerrado?.estado === "CERRADO"
+    );
+
+    const llamadoSeparado = await prisma.llamadoMesero.count({ where: { id: llamadoId } });
+    check("Llamado se guarda en LlamadosMesero, no en Pedidos", llamadoSeparado === 1);
 
     const reporte = await api(`/api/caja/turnos/${turnoId}/reporte`, {
       token: adminToken,
@@ -649,7 +661,7 @@ async function main() {
       await prisma.pedido.delete({ where: { id: pedidoId } }).catch(() => {});
     }
     if (llamadoId) {
-      await prisma.pedido.delete({ where: { id: llamadoId } }).catch(() => {});
+      await prisma.llamadoMesero.delete({ where: { id: llamadoId } }).catch(() => {});
     }
     if (turnoId) {
       await prisma.movimientoCaja.deleteMany({ where: { turnoId } }).catch(() => {});

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ACTIVE_ORDER_STATUSES } from '@/lib/order-status';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
   const pedido = await prisma.pedido.findFirst({
     where: {
       mesaId: Number(mesaId),
-      estado: 'Pendiente' // El pedido que aún no se paga
+      estado: { in: [...ACTIVE_ORDER_STATUSES] } // El pedido que aún no se paga
     },
     select: { 
       id: true, 

@@ -8,6 +8,11 @@ import {
 } from "@/lib/caja-types";
 import type { SessionPayload } from "@/lib/auth/session";
 import { actorFromSession, auditLog, type AuditContext } from "@/lib/audit";
+import {
+  CHARGEABLE_ORDER_STATUSES,
+  normalizeOrderStatus,
+} from "@/lib/order-status";
+import { withSerializableRetry } from "@/lib/concurrency";
 
 export interface PagoAplicacionInput {
   pedidoDetalleId: number;
@@ -94,7 +99,8 @@ export async function registrarPago({
     );
   }
 
-  return prisma.$transaction(
+  return withSerializableRetry(() =>
+    prisma.$transaction(
     async (tx) => {
       const turno = await tx.turnoCaja.findFirst({
         where: { estado: "Abierto" },
@@ -130,15 +136,24 @@ export async function registrarPago({
         );
       }
 
-      if (pedido.estado !== "Pendiente") {
-        throw new CajaError(400, "ESTADO_INVALIDO", "El pedido no está listo para cobro.");
+      const estadoPedido = normalizeOrderStatus(pedido.estado);
+      if (!CHARGEABLE_ORDER_STATUSES.includes(estadoPedido)) {
+        throw new CajaError(
+          400,
+          "ESTADO_INVALIDO",
+          "El pedido no está en un estado cobrable."
+        );
       }
 
       if (pedido.detalles.length === 0) {
         throw new CajaError(400, "PEDIDO_VACIO", "El pedido no tiene productos.");
       }
 
-      if (pedido.detalles.some((detalle) => detalle.estado !== "Listo")) {
+      if (
+        pedido.detalles.some(
+          (detalle) => !["LISTO", "SERVIDO"].includes(detalle.estado)
+        )
+      ) {
         throw new CajaError(
           409,
           "COCINA_PENDIENTE",
@@ -331,7 +346,7 @@ export async function registrarPago({
       const actualizado = await tx.pedido.updateMany({
         where: {
           id: pedidoId,
-          estado: "Pendiente",
+          estado: { in: [...CHARGEABLE_ORDER_STATUSES] },
           saldo: saldoAntes,
           totalPagado: totalPagadoAntes,
         },
@@ -343,7 +358,7 @@ export async function registrarPago({
           totalPagado: nuevoTotalPagado,
           saldo: saldoFinal,
           estadoPago: pagado ? "Pagado" : "Parcial",
-          estado: pagado ? "Pagado" : "Pendiente",
+          estado: pagado ? "PAGADO" : "POR_COBRAR",
           pagadoEn: pagado ? ahora : null,
           metodoPago: metodo,
         },
@@ -433,6 +448,7 @@ export async function registrarPago({
               totalPagado: nuevoTotalPagado,
               saldo: saldoFinal,
               estadoPago: pagado ? "Pagado" : "Parcial",
+              estado: pagado ? "PAGADO" : "POR_COBRAR",
               cambio,
               aplicaciones: aplicacionesCalculadas,
             },
@@ -457,5 +473,6 @@ export async function registrarPago({
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    )
   );
 }

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { expireStaleQrOrders } from '@/lib/qr-orders';
-
-const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
+import { getFranjaInicio } from "@/lib/reservation-slot";
 
 export async function GET(
   request: Request,
@@ -42,10 +41,7 @@ export async function GET(
         where: {
           mesaId: idMesa,
           estado: 'Confirmada',
-          fechaReserva: {
-            gte: new Date(ahora - RESERVA_VENTANA_MS),
-            lte: new Date(ahora + RESERVA_VENTANA_MS),
-          },
+          franjaInicio: getFranjaInicio(new Date(ahora)),
         },
         select: { id: true },
       });

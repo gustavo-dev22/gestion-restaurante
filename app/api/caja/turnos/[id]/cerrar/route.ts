@@ -4,6 +4,7 @@ import { cajaErrorResponse, revalidateCaja } from "@/lib/caja-http";
 import { authorizeLocal } from "@/lib/rbac";
 import { getAuditContext } from "@/lib/audit";
 import { withIdempotency } from "@/lib/idempotency";
+import { parseJson, cerrarCajaSchema } from "@/lib/api-validation";
 
 export async function POST(
   request: Request,
@@ -16,15 +17,14 @@ export async function POST(
     try {
       const { id } = await params;
       const turnoId = Number(id);
-      const body = (await request.json().catch(() => null)) as
-        | { efectivoContado?: unknown; justificacion?: unknown }
-        | null;
+      const parsed = await parseJson(request, cerrarCajaSchema);
+      if (!parsed.success) return parsed.response;
 
       const turno = await cerrarTurno(
         auth,
         turnoId,
-        body?.efectivoContado,
-        body?.justificacion,
+        parsed.data.efectivoContado,
+        parsed.data.justificacion,
         getAuditContext(request)
       );
       revalidateCaja();
@@ -32,5 +32,7 @@ export async function POST(
     } catch (error) {
       return cajaErrorResponse(error);
     }
-  });
+    },
+    { scope: "caja:close" }
+  );
 }

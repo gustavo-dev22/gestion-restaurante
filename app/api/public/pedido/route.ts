@@ -7,8 +7,10 @@ import { logger } from '@/lib/logger';
 import { revalidateTag } from 'next/cache';
 import { withIdempotency } from '@/lib/idempotency';
 import { auditLogSafe, getAuditContext } from '@/lib/audit';
+import { ACTIVE_ORDER_STATUSES } from '@/lib/order-status';
+import { parseJson, publicPedidoSchema } from '@/lib/api-validation';
 
-const ESTADOS_ACTIVOS = ['Por Confirmar', 'Pendiente'];
+const ESTADOS_ACTIVOS = [...ACTIVE_ORDER_STATUSES];
 
 class MesaNoDisponibleError extends Error {}
 class ProductoInvalidoError extends Error {}
@@ -62,7 +64,9 @@ export async function POST(request: Request) {
 
     await expireStaleQrOrders();
 
-    const body = await request.json();
+    const parsed = await parseJson(request, publicPedidoSchema);
+    if (!parsed.success) return parsed.response;
+    const body = parsed.data;
     const mesaId = Number(body?.mesaId);
     const items = Array.isArray(body?.items) ? body.items : [];
 
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
           productoId: item.productoId,
           cantidad: item.cantidad,
           precio_unitario: precio,
-          estado: 'Pendiente',
+          estado: 'PENDIENTE',
         });
       }
 
@@ -153,7 +157,8 @@ export async function POST(request: Request) {
           totalPagado: 0,
           saldo: total,
           estadoPago: 'Pendiente',
-          estado: 'Por Confirmar',
+          estado: 'BORRADOR',
+          origen: 'QR',
           nombreMesero: 'Cliente (Digital)',
           fecha_creacion: new Date(),
           detalles: { create: detalles },

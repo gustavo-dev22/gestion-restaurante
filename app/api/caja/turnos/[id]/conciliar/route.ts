@@ -4,6 +4,7 @@ import { cajaErrorResponse, revalidateCaja } from "@/lib/caja-http";
 import { authorizeLocal } from "@/lib/rbac";
 import { getAuditContext } from "@/lib/audit";
 import { withIdempotency } from "@/lib/idempotency";
+import { parseJson, conciliarSchema } from "@/lib/api-validation";
 
 export async function PATCH(
   request: Request,
@@ -16,15 +17,14 @@ export async function PATCH(
     try {
       const { id } = await params;
       const turnoId = Number(id);
-      const body = (await request.json().catch(() => null)) as
-        | { pagoIds?: unknown; devolucionIds?: unknown }
-        | null;
+      const parsed = await parseJson(request, conciliarSchema);
+      if (!parsed.success) return parsed.response;
 
       const resultado = await conciliarPagos(
         auth,
         turnoId,
-        body?.pagoIds,
-        body?.devolucionIds,
+        parsed.data.pagoIds,
+        parsed.data.devolucionIds,
         getAuditContext(request)
       );
       revalidateCaja();
@@ -32,5 +32,7 @@ export async function PATCH(
     } catch (error) {
       return cajaErrorResponse(error);
     }
-  });
+    },
+    { scope: "payment:conciliate" }
+  );
 }

@@ -9,7 +9,7 @@ import { useVisibilityPolling } from "@/lib/useVisibilityPolling";
 
 interface Llamado {
   id: number;
-  fecha_creacion: string;
+  creadoEn: string;
   usuarioId: string | null;
   nombreMesero: string | null;
   mesa: { id: number; numero: string };
@@ -33,7 +33,7 @@ export default function LlamadosMesero() {
   const atender = async (id: number) => {
     setAtendiendo(id);
     try {
-      await http.patch("/api/mesero/llamados", { pedidoId: id });
+      await http.patch("/api/mesero/llamados", { llamadoId: id });
       setLlamados((prev) => prev.filter((llamado) => llamado.id !== id));
       toastSuccess("Solicitud atendida", "El cliente verá el aviso en su pantalla.");
     } catch {
@@ -67,7 +67,7 @@ export default function LlamadosMesero() {
             <div className="min-w-0">
               <p className="font-bold text-slate-800">Mesa {llamado.mesa.numero}</p>
               <p className="text-xs text-slate-600">
-                {timeAgo(llamado.fecha_creacion)}
+                {timeAgo(llamado.creadoEn)}
                 {llamado.nombreMesero && llamado.nombreMesero !== "Sin asignar"
                   ? ` · ${llamado.nombreMesero}`
                   : " · Sin responsable"}

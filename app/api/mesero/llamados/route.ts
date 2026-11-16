@@ -1,27 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { authorizeLocal } from "@/lib/rbac";
+import { parseJson, atenderLlamadoSchema } from "@/lib/api-validation";
+import { actorFromSession, auditLogSafe, getAuditContext } from "@/lib/audit";
 
 export async function GET(request: Request) {
+  const session = await authorizeLocal(request, "orders:serve");
+  if (session instanceof NextResponse) return session;
+
+  const isAdmin = session.sections.includes("admin");
+
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
-
-    const isAdmin = session.sections.includes("admin");
-
-    const llamados = await prisma.pedido.findMany({
+    const llamados = await prisma.llamadoMesero.findMany({
       where: isAdmin
-        ? { estado: "Llamado" }
+        ? { estado: "PENDIENTE" }
         : {
-            estado: "Llamado",
-            // Solo los llamados del mesero responsable o los que aún no tienen
-            // responsable (mesa sin pedido activo asignado).
+            estado: "PENDIENTE",
             OR: [{ usuarioId: session.sub }, { usuarioId: null }],
           },
-      include: { mesa: true },
-      orderBy: { fecha_creacion: "asc" },
+      include: { mesa: { select: { id: true, numero: true } } },
+      orderBy: { creadoEn: "asc" },
     });
 
     return NextResponse.json(llamados);
@@ -31,26 +29,23 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const session = await authorizeLocal(request, "orders:serve");
+  if (session instanceof NextResponse) return session;
+
+  const parsed = await parseJson(request, atenderLlamadoSchema);
+  if (!parsed.success) return parsed.response;
+
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
-
-    const { pedidoId } = await request.json();
-    const id = Number(pedidoId);
-
-    if (!id || Number.isNaN(id)) {
-      return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
-    }
-
-    const llamado = await prisma.pedido.findUnique({
-      where: { id },
-      select: { estado: true, usuarioId: true, nombreMesero: true },
+    const llamado = await prisma.llamadoMesero.findUnique({
+      where: { id: parsed.data.llamadoId },
+      select: { estado: true, usuarioId: true },
     });
 
-    if (!llamado || llamado.estado !== "Llamado") {
-      return NextResponse.json({ error: "Solicitud no encontrada o ya atendida" }, { status: 404 });
+    if (!llamado || llamado.estado !== "PENDIENTE") {
+      return NextResponse.json(
+        { error: "LLAMADO_NO_ENCONTRADO", message: "La solicitud ya fue atendida o no existe." },
+        { status: 404 }
+      );
     }
 
     const isAdmin = session.sections.includes("admin");
@@ -61,17 +56,36 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const atendido = await prisma.pedido.update({
-      where: { id },
+    const actualizado = await prisma.llamadoMesero.update({
+      where: { id: parsed.data.llamadoId },
       data: {
-        estado: "Atendido",
-        // Si no tenía responsable, queda registrado quién la atendió.
-        usuarioId: llamado.usuarioId ?? session.sub,
-        nombreMesero: llamado.usuarioId ? llamado.nombreMesero : session.nombre,
+        estado: "ATENDIDO",
+        atendidoEn: new Date(),
+        atendidoPorId: session.sub,
+        atendidoPorNombre: session.nombre,
+        ...(llamado.usuarioId ? {} : { usuarioId: session.sub, nombreMesero: session.nombre }),
       },
+      include: { mesa: { select: { id: true, numero: true } } },
     });
 
-    return NextResponse.json(atendido);
+    await auditLogSafe(
+      {
+        actor: actorFromSession(session),
+        accion: "call.attend",
+        entidad: "LlamadoMesero",
+        entidadId: actualizado.id,
+        antes: { estado: "PENDIENTE", usuarioId: llamado.usuarioId },
+        despues: {
+          estado: actualizado.estado,
+          atendidoPorId: actualizado.atendidoPorId,
+          atendidoPorNombre: actualizado.atendidoPorNombre,
+        },
+        motivo: "Solicitud de mesero atendida",
+      },
+      getAuditContext(request)
+    );
+
+    return NextResponse.json(actualizado);
   } catch {
     return NextResponse.json({ error: "Error al atender el llamado" }, { status: 500 });
   }

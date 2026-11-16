@@ -1,0 +1,23 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+ALTER TABLE [dbo].[Pedidos] ADD
+    [origen] NVARCHAR(20) NOT NULL CONSTRAINT [Pedidos_origen_df] DEFAULT 'POS';
+
+EXEC(N'UPDATE [dbo].[Pedidos]
+SET [origen] = ''QR''
+WHERE [estado] = ''BORRADOR'' AND [origen] = ''POS'';');
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

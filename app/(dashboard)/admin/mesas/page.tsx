@@ -155,9 +155,11 @@ export default function MesasPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    const motivo = window.prompt("Motivo de la eliminación:", "Mesa fuera de servicio");
+    if (!motivo || motivo.trim().length < 3) return;
     setDeleting(true);
     try {
-      const data = await http.delete<{ success: boolean; message: string }>(`/api/mesas?id=${deleteTarget.id}`);
+      const data = await http.delete<{ success: boolean; message: string }>(`/api/mesas?id=${deleteTarget.id}&motivo=${encodeURIComponent(motivo.trim())}`);
       if (data.success) {
         toastSuccess("Mesa eliminada", data.message);
         setDeleteTarget(null);

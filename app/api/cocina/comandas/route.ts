@@ -1,49 +1,129 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { authorizeLocal } from "@/lib/rbac";
+import {
+  parseJson,
+  parseQuery,
+  comandaEstadoSchema,
+} from "@/lib/api-validation";
+import {
+  ACTIVE_ORDER_STATUSES,
+  OrderStatusError,
+  assertDetailTransition,
+  deriveOrderStatus,
+  normalizeDetailStatus,
+  normalizeOrderStatus,
+} from "@/lib/order-status";
+import { actorFromSession, auditLog, getAuditContext } from "@/lib/audit";
+import { logger } from "@/lib/logger";
+
+const querySchema = z.object({
+  area: z.string().trim().max(20).default("Cocina"),
+});
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const area = searchParams.get('area') || 'Cocina'; // Por defecto Cocina
+  const parsed = parseQuery(searchParams, querySchema);
+  if (!parsed.success) return parsed.response;
 
   try {
     const comandas = await prisma.pedidoDetalle.findMany({
       where: {
-        // Incluye explícitamente estado NULL (pedidos antiguos o creados por QR)
-        OR: [{ estado: null }, { estado: { not: 'Listo' } }],
-        pedido: { estado: 'Pendiente' },
+        estado: { in: ["PENDIENTE", "EN_PREPARACION"] },
+        pedido: {
+          estado: { in: ["CONFIRMADO", "EN_COCINA", "PARCIALMENTE_LISTO"] },
+        },
         producto: {
-          categoria: {
-            area: area // Filtramos por el área recibida
-          }
-        }
+          categoria: { area: parsed.data.area },
+        },
       },
       include: {
         pedido: { include: { mesa: true } },
-        producto: true
+        producto: true,
       },
-      orderBy: { id: 'asc' }
+      orderBy: { id: "asc" },
     });
     return NextResponse.json(comandas);
   } catch {
-    return NextResponse.json({ error: 'Error' }, { status: 500 });
+    return NextResponse.json({ error: "Error al obtener comandas" }, { status: 500 });
   }
 }
 
-// NUEVO: Para actualizar el estado del plato
 export async function PATCH(request: Request) {
+  const session = await authorizeLocal(request, "orders:prepare");
+  if (session instanceof NextResponse) return session;
+
+  const parsed = await parseJson(request, comandaEstadoSchema);
+  if (!parsed.success) return parsed.response;
+
   try {
-    const { detalleId, nuevoEstado } = await request.json();
+    const resultado = await prisma.$transaction(async (tx) => {
+      const detalle = await tx.pedidoDetalle.findUnique({
+        where: { id: parsed.data.detalleId },
+        include: { pedido: true },
+      });
+      if (!detalle) {
+        throw new OrderStatusError("El plato no existe.");
+      }
 
-    if (!detalleId || nuevoEstado !== 'Listo') {
-      return NextResponse.json({ error: 'Estado o detalle inválido' }, { status: 400 });
-    }
+      const pedidoEstado = normalizeOrderStatus(detalle.pedido.estado);
+      if (!ACTIVE_ORDER_STATUSES.includes(pedidoEstado)) {
+        throw new OrderStatusError("El pedido ya está cerrado o anulado.");
+      }
 
-    const actualizado = await prisma.pedidoDetalle.update({
-      where: { id: Number(detalleId) },
-      data: { estado: nuevoEstado }
+      const estadoAnterior = normalizeDetailStatus(detalle.estado);
+      assertDetailTransition(estadoAnterior, parsed.data.nuevoEstado);
+
+      const actualizado = await tx.pedidoDetalle.update({
+        where: { id: detalle.id },
+        data: { estado: parsed.data.nuevoEstado },
+      });
+
+      const detalles = await tx.pedidoDetalle.findMany({
+        where: { pedidoId: detalle.pedidoId },
+        select: { estado: true },
+      });
+      const nuevoEstadoPedido = deriveOrderStatus(detalles, pedidoEstado);
+
+      if (nuevoEstadoPedido !== pedidoEstado) {
+        await tx.pedido.update({
+          where: { id: detalle.pedidoId },
+          data: { estado: nuevoEstadoPedido },
+        });
+      }
+
+      return {
+        detalle: actualizado,
+        pedidoId: detalle.pedidoId,
+        estadoAnterior,
+        estadoPedidoAnterior: pedidoEstado,
+        estadoPedido: nuevoEstadoPedido,
+      };
     });
-    return NextResponse.json(actualizado);
-  } catch {
-    return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 });
+
+    await auditLog(
+      {
+        actor: actorFromSession(session),
+        accion: "order.item.prepare",
+        entidad: "PedidoDetalle",
+        entidadId: resultado.detalle.id,
+        antes: { estado: resultado.estadoAnterior },
+        despues: { estado: resultado.detalle.estado },
+        motivo: `Plato actualizado a ${resultado.detalle.estado}`,
+      },
+      getAuditContext(request)
+    );
+
+    return NextResponse.json(resultado);
+  } catch (error) {
+    if (error instanceof OrderStatusError) {
+      return NextResponse.json(
+        { error: error.code, message: error.message },
+        { status: error.status }
+      );
+    }
+    logger.error("Error al actualizar comanda", { error });
+    return NextResponse.json({ error: "Error al actualizar la comanda" }, { status: 500 });
   }
 }

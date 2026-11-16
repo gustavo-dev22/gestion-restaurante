@@ -62,7 +62,7 @@ interface Llamado {
 function LlamadoStatus({ llamado }: { llamado: Llamado | null }) {
   if (!llamado) return null;
 
-  const atendido = llamado.estado === "Atendido";
+  const atendido = llamado.estado === "ATENDIDO";
 
   return (
     <div
@@ -105,9 +105,16 @@ function ProductImage({ src, alt, priority = false }: { src?: string | null; alt
 }
 
 const ESTADO_LABEL: Record<string, string> = {
-  "Por Confirmar": "Esperando confirmación del mesero",
-  Pendiente: "En preparación",
-  Pagado: "Finalizado",
+  BORRADOR: "Esperando confirmación del mesero",
+  CONFIRMADO: "Pedido confirmado",
+  EN_COCINA: "En preparación",
+  PARCIALMENTE_LISTO: "Algunos platos listos",
+  LISTO: "Pedido listo",
+  SERVIDO: "Pedido servido",
+  POR_COBRAR: "Por cobrar",
+  PAGADO: "Finalizado",
+  CERRADO: "Cerrado",
+  ANULADO: "Anulado",
 };
 
 export default function MenuDigitalPage({ params }: PageProps) {
@@ -158,7 +165,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
           `/api/public/llamar-mesero?mesaId=${mesaId}`,
           { skipAuthRedirect: true }
         );
-        if (llamadaActiva?.estado === "Llamado") setLlamado(llamadaActiva);
+        if (llamadaActiva?.estado === "PENDIENTE") setLlamado(llamadaActiva);
       } catch {
         // Si falla, no bloquea la carga de la mesa.
       }
@@ -219,7 +226,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
         { skipAuthRedirect: true }
       );
 
-      if (data?.estado === "Atendido") {
+      if (data?.estado === "ATENDIDO") {
         setLlamado(data);
         toastSuccess(
           "¡Mesero en camino!",
@@ -233,11 +240,11 @@ export default function MenuDigitalPage({ params }: PageProps) {
     }
   }, [llamado, mesaId]);
 
-  useVisibilityPolling(consultarLlamado, 5_000, llamado?.estado === "Llamado", true);
+  useVisibilityPolling(consultarLlamado, 5_000, llamado?.estado === "PENDIENTE", true);
 
   // El aviso de "mesero en camino" desaparece solo después de un tiempo.
   useEffect(() => {
-    if (llamado?.estado !== "Atendido") return;
+    if (llamado?.estado !== "ATENDIDO") return;
     const timeout = setTimeout(() => setLlamado(null), 30_000);
     return () => clearTimeout(timeout);
   }, [llamado]);
@@ -332,7 +339,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
       toastSuccess("Solicitud enviada", data.message);
 
       if (data.solicitudId) {
-        setLlamado({ id: data.solicitudId, estado: "Llamado" });
+        setLlamado({ id: data.solicitudId, estado: "PENDIENTE" });
       }
     } catch {
       toastError("No se pudo avisar al mesero", "Intenta nuevamente o llama al personal.");
@@ -363,7 +370,7 @@ export default function MenuDigitalPage({ params }: PageProps) {
 
   // Seguimiento del pedido
   if (pedidoActivo) {
-    const listos = pedidoActivo.detalles.filter((detalle) => detalle.estado === "Listo").length;
+    const listos = pedidoActivo.detalles.filter((detalle) => detalle.estado === "LISTO").length;
     const totalPlatos = pedidoActivo.detalles.length;
 
     return (
@@ -410,12 +417,12 @@ export default function MenuDigitalPage({ params }: PageProps) {
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      detalle.estado === "Listo"
+                      detalle.estado === "LISTO"
                         ? "bg-emerald-50 text-emerald-700"
                         : "bg-amber-50 text-amber-700"
                     }`}
                   >
-                    {detalle.estado === "Listo" ? "Listo" : "En preparación"}
+                    {detalle.estado === "LISTO" ? "Listo" : "En preparación"}
                   </span>
                 </div>
               ))}

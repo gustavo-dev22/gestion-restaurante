@@ -1,32 +1,39 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseLimaDateTime } from "@/lib/utils";
+import { parseQuery, idSchema } from "@/lib/api-validation";
+import { getFranjaInicio } from "@/lib/reservation-slot";
+import { z } from "zod";
 
-const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
+const querySchema = z.object({
+  mesaId: idSchema,
+  fecha: z.string().trim().min(1),
+});
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const parsed = parseQuery(searchParams, querySchema);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { disponible: false, message: "Parámetros inválidos." },
+      { status: 400 }
+    );
+  }
+
+  const fecha = parseLimaDateTime(parsed.data.fecha);
+  if (!fecha) {
+    return NextResponse.json(
+      { disponible: false, message: "Fecha inválida." },
+      { status: 400 }
+    );
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const mesaId = Number(searchParams.get("mesaId"));
-    const fechaParam = searchParams.get("fecha");
-
-    if (!mesaId || Number.isNaN(mesaId) || !fechaParam) {
-      return NextResponse.json({ disponible: false, message: "Parámetros inválidos." }, { status: 400 });
-    }
-
-    const fecha = parseLimaDateTime(fechaParam);
-    if (!fecha) {
-      return NextResponse.json({ disponible: false, message: "Fecha inválida." }, { status: 400 });
-    }
-
     const conflicto = await prisma.reserva.findFirst({
       where: {
-        mesaId,
+        mesaId: parsed.data.mesaId,
         estado: "Confirmada",
-        fechaReserva: {
-          gte: new Date(fecha.getTime() - RESERVA_VENTANA_MS),
-          lte: new Date(fecha.getTime() + RESERVA_VENTANA_MS),
-        },
+        franjaInicio: getFranjaInicio(fecha),
       },
       select: { id: true, fechaReserva: true },
     });
@@ -34,7 +41,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       disponible: !conflicto,
       message: conflicto
-        ? "La mesa ya tiene una reserva cerca de ese horario."
+        ? "La mesa ya tiene una reserva en esa franja."
         : "Mesa disponible en ese horario.",
     });
   } catch {

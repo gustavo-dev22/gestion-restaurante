@@ -9,6 +9,7 @@ import { authorizeLocal } from "@/lib/rbac";
 import { getAuditContext } from "@/lib/audit";
 import { CASH_PATHS } from "@/lib/auth/cash-permissions";
 import { withIdempotency } from "@/lib/idempotency";
+import { parseJson, abrirCajaSchema } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +32,15 @@ export async function POST(request: Request) {
     if (auth instanceof NextResponse) return auth;
 
     try {
-      const body = (await request.json().catch(() => null)) as
-        | { fondoInicial?: unknown }
-        | null;
-      const turno = await abrirTurno(auth, Number(body?.fondoInicial), getAuditContext(request));
+      const parsed = await parseJson(request, abrirCajaSchema);
+      if (!parsed.success) return parsed.response;
+      const turno = await abrirTurno(auth, parsed.data.fondoInicial, getAuditContext(request));
       revalidateCaja();
       return NextResponse.json({ success: true, turno });
     } catch (error) {
       return cajaErrorResponse(error);
     }
-  });
+    },
+    { scope: "caja:open" }
+  );
 }

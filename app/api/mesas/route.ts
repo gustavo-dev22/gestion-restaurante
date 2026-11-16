@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { actorFromSession, auditLogSafe, getAuditContext } from "@/lib/audit";
 import { authorizeLocal } from "@/lib/rbac";
+import { parseJson, mesaSchema, mesaUpdateSchema } from "@/lib/api-validation";
+import { ACTIVE_ORDER_STATUSES } from "@/lib/order-status";
 
 export async function GET() {
   try {
     const mesas = await prisma.mesa.findMany({
       include: {
         pedidos: {
-          where: { estado: "Pendiente" },
+          where: { estado: { in: [...ACTIVE_ORDER_STATUSES] } },
           select: { nombreMesero: true, usuarioId: true },
           take: 1,
         },
@@ -32,13 +34,15 @@ export async function POST(request: Request) {
   const auth = await authorizeLocal(request, "tables:manage");
   if (auth instanceof NextResponse) return auth;
 
+  const parsed = await parseJson(request, mesaSchema);
+  if (!parsed.success) return parsed.response;
+
   try {
-    const body = await request.json();
     const nueva = await prisma.mesa.create({
       data: {
-        numero: body.numero,
-        capacidad: parseInt(body.capacidad),
-        zona: body.zona,
+        numero: parsed.data.numero,
+        capacidad: parsed.data.capacidad ?? 2,
+        zona: parsed.data.zona ?? null,
         estado: "Libre",
         fecha_creacion: new Date(),
       },
@@ -65,18 +69,15 @@ export async function PATCH(request: Request) {
   const auth = await authorizeLocal(request, "tables:manage");
   if (auth instanceof NextResponse) return auth;
 
+  const parsed = await parseJson(request, mesaUpdateSchema);
+  if (!parsed.success) return parsed.response;
+
   try {
-    const body = await request.json();
-    const id = Number(body.id);
+    const { id, ...data } = parsed.data;
     const antes = await prisma.mesa.findUnique({ where: { id } });
     const actualizada = await prisma.mesa.update({
       where: { id },
-      data: {
-        numero: body.numero,
-        capacidad: parseInt(body.capacidad),
-        zona: body.zona,
-        estado: body.estado,
-      },
+      data,
     });
 
     await auditLogSafe(
@@ -102,14 +103,25 @@ export async function DELETE(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
+  const id = Number(searchParams.get("id"));
+  const motivo = (searchParams.get("motivo") ?? "").trim();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  }
+  if (motivo.length < 3) {
+    return NextResponse.json(
+      { error: "MOTIVO_REQUERIDO", message: "Indica el motivo de la eliminación." },
+      { status: 400 }
+    );
+  }
 
   try {
-    const mesa = await prisma.mesa.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (mesa?.estado === "Ocupada") {
+    const mesa = await prisma.mesa.findUnique({ where: { id } });
+    if (!mesa) {
+      return NextResponse.json({ success: false, message: "Mesa no encontrada." }, { status: 404 });
+    }
+    if (mesa.estado === "Ocupada") {
       return NextResponse.json({
         success: false,
         message: "No puedes eliminar una mesa OCUPADA. Debe estar Libre para proceder.",
@@ -117,8 +129,14 @@ export async function DELETE(request: Request) {
     }
 
     await prisma.mesa.update({
-      where: { id: Number(id) },
-      data: { activo: false },
+      where: { id },
+      data: {
+        activo: false,
+        eliminadoEn: new Date(),
+        eliminadoPorId: auth.sub,
+        eliminadoPorNombre: auth.nombre,
+        motivoEliminacion: motivo.slice(0, 300),
+      },
     });
 
     await auditLogSafe(
@@ -128,8 +146,8 @@ export async function DELETE(request: Request) {
         entidad: "Mesa",
         entidadId: id,
         antes: mesa,
-        despues: { id: Number(id), activo: false },
-        motivo: "Desactivación de mesa",
+        despues: { id, activo: false, motivoEliminacion: motivo },
+        motivo,
       },
       getAuditContext(request)
     );

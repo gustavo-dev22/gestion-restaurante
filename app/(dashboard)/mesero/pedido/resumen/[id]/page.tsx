@@ -13,6 +13,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError, toastWarning } from "@/components/ui/Toast";
 import { http, HttpError } from "@/lib/http";
+import { generateIdempotencyKey } from "@/lib/idempotency-key";
 import { formatCurrency } from "@/lib/utils";
 
 interface DetalleResumen {
@@ -28,6 +29,7 @@ interface PedidoResumen {
   totalPagado: number | string;
   saldo: number | string;
   estadoPago: string;
+  estado: string;
   mesa: { numero: string };
   detalles: DetalleResumen[];
 }
@@ -64,6 +66,19 @@ export default function ResumenPedido() {
   useEffect(() => {
     fetchPedido();
   }, [fetchPedido]);
+
+  const marcarServido = async () => {
+    try {
+      await http.patch("/api/mesero/pedido/estado", {
+        pedidoId: Number(params.id),
+        estado: "SERVIDO",
+      });
+      toastSuccess("Pedido servido", "La mesa quedó marcada como servida.");
+      await fetchPedido();
+    } catch {
+      toastError("No se pudo marcar servido", "Verifica que todos los platos estén listos.");
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -115,7 +130,11 @@ export default function ResumenPedido() {
 
     setPaying(true);
     try {
-      await http.patch("/api/mesero/pedido/pagar", { pedidoId: params.id, metodoPago: metodo });
+      await http.patch(
+        "/api/mesero/pedido/pagar",
+        { pedidoId: params.id, metodoPago: metodo },
+        { idempotencyKey: generateIdempotencyKey() }
+      );
 
       setPayOpen(false);
       toastSuccess("Venta exitosa", "La mesa ha sido liberada.");
@@ -179,7 +198,7 @@ export default function ResumenPedido() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-bold text-slate-800">{det.producto.nombre}</p>
-                  <Badge tone={det.estado === "Listo" ? "emerald" : "amber"}>{det.estado}</Badge>
+                  <Badge tone={det.estado === "LISTO" ? "emerald" : "amber"}>{det.estado}</Badge>
                 </div>
                 <p className="text-sm text-slate-600">
                   {det.cantidad} x {formatCurrency(det.precio_unitario)}
@@ -191,6 +210,17 @@ export default function ResumenPedido() {
             </div>
           ))}
         </div>
+
+        {pedido.estado === "LISTO" && (
+          <Button
+            type="button"
+            variant="success"
+            className="mt-6 w-full"
+            onClick={marcarServido}
+          >
+            Marcar pedido como servido
+          </Button>
+        )}
 
         <div className="mt-6 border-t border-slate-200 pt-6">
           <div className="mb-2 flex justify-between text-sm text-slate-600">

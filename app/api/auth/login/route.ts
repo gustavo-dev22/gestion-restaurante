@@ -10,13 +10,14 @@ import { sasiLoginRequest } from "@/lib/sasi";
 import { logger } from "@/lib/logger";
 import { auditLogSafe, getAuditContext } from "@/lib/audit";
 import { ensureLocalUserFromSasi } from "@/lib/rbac";
+import { parseJson, loginSchema } from "@/lib/api-validation";
 
 export async function POST(request: Request) {
   const auditContext = getAuditContext(request);
 
   try {
-    const body = await request.json().catch(() => null);
-    if (!body || typeof body !== "object") {
+    const parsed = await parseJson(request, loginSchema);
+    if (!parsed.success) {
       await auditLogSafe(
         {
           accion: "auth.login.failed",
@@ -25,16 +26,10 @@ export async function POST(request: Request) {
         },
         auditContext
       );
-      return NextResponse.json(
-        { success: false, message: "Solicitud de inicio de sesión inválida." },
-        { status: 400 }
-      );
+      return parsed.response;
     }
-
-    const username =
-      typeof (body as Record<string, unknown>).username === "string"
-        ? String((body as Record<string, unknown>).username)
-        : "";
+    const body = parsed.data;
+    const username = body.username;
 
     const { data } = await sasiLoginRequest(body);
 

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { actorFromSession, auditLogSafe, getAuditContext } from "@/lib/audit";
 import { authorizeLocal } from "@/lib/rbac";
+import {
+  parseJson,
+  productoSchema,
+  productoUpdateSchema,
+} from "@/lib/api-validation";
 
 export async function GET() {
   try {
@@ -23,20 +28,36 @@ export async function POST(request: Request) {
   const auth = await authorizeLocal(request, "products:manage");
   if (auth instanceof NextResponse) return auth;
 
-  try {
-    const body = await request.json();
+  const parsed = await parseJson(request, productoSchema);
+  if (!parsed.success) return parsed.response;
 
-    const nuevoProducto = await prisma.producto.create({
-      data: {
-        nombre: body.nombre,
-        descripcion: body.descripcion,
-        precio: parseFloat(body.precio),
-        stock: parseInt(body.stock) || 0,
-        categoriaId: parseInt(body.categoriaId),
-        imagen_url: body.imagen_url || null,
-        activo: true,
-        fecha_creacion: new Date(),
-      },
+  try {
+    const nuevoProducto = await prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.create({
+        data: {
+          nombre: parsed.data.nombre,
+          descripcion: parsed.data.descripcion ?? null,
+          precio: parsed.data.precio,
+          stock: parsed.data.stock ?? 0,
+          categoriaId: parsed.data.categoriaId,
+          imagen_url: parsed.data.imagen_url ?? null,
+          activo: true,
+          fecha_creacion: new Date(),
+        },
+      });
+
+      await tx.productoPrecioHistorial.create({
+        data: {
+          productoId: producto.id,
+          precioAnterior: null,
+          precioNuevo: producto.precio,
+          motivo: "Precio inicial",
+          usuarioId: auth.sub,
+          usuarioNombre: auth.nombre,
+        },
+      });
+
+      return producto;
     });
 
     await auditLogSafe(
@@ -61,21 +82,43 @@ export async function PATCH(request: Request) {
   const auth = await authorizeLocal(request, "products:manage");
   if (auth instanceof NextResponse) return auth;
 
-  try {
-    const body = await request.json();
-    const id = Number(body.id);
-    const antes = await prisma.producto.findUnique({ where: { id } });
+  const parsed = await parseJson(request, productoUpdateSchema);
+  if (!parsed.success) return parsed.response;
 
-    const actualizada = await prisma.producto.update({
-      where: { id },
-      data: {
-        nombre: body.nombre,
-        descripcion: body.descripcion,
-        precio: parseFloat(body.precio),
-        stock: parseInt(body.stock),
-        categoriaId: parseInt(body.categoriaId),
-        imagen_url: body.imagen_url || null,
-      },
+  try {
+    const { id, ...data } = parsed.data;
+    const antes = await prisma.producto.findUnique({ where: { id } });
+    if (!antes) {
+      return NextResponse.json({ error: "PRODUCTO_NO_ENCONTRADO" }, { status: 404 });
+    }
+
+    const actualizada = await prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.update({
+        where: { id },
+        data: {
+          nombre: data.nombre,
+          descripcion: data.descripcion ?? null,
+          precio: data.precio,
+          stock: data.stock ?? 0,
+          categoriaId: data.categoriaId,
+          imagen_url: data.imagen_url ?? null,
+        },
+      });
+
+      if (Number(antes.precio) !== Number(producto.precio)) {
+        await tx.productoPrecioHistorial.create({
+          data: {
+            productoId: producto.id,
+            precioAnterior: antes.precio,
+            precioNuevo: producto.precio,
+            motivo: `Actualización de precio`,
+            usuarioId: auth.sub,
+            usuarioNombre: auth.nombre,
+          },
+        });
+      }
+
+      return producto;
     });
 
     await auditLogSafe(
@@ -91,7 +134,8 @@ export async function PATCH(request: Request) {
     );
 
     return NextResponse.json(actualizada);
-  } catch {
+  } catch (error) {
+    console.error("Error al actualizar producto:", error);
     return NextResponse.json({ error: "Error al actualizar" }, { status: 500 });
   }
 }
@@ -102,16 +146,33 @@ export async function DELETE(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+    const id = Number(searchParams.get("id"));
+    const motivo = (searchParams.get("motivo") ?? "").trim();
 
-    if (!id) {
+    if (!Number.isInteger(id) || id <= 0) {
       return NextResponse.json({ error: "ID requerido" }, { status: 400 });
     }
+    if (motivo.length < 3) {
+      return NextResponse.json(
+        { error: "MOTIVO_REQUERIDO", message: "Indica el motivo de la eliminación." },
+        { status: 400 }
+      );
+    }
 
-    const antes = await prisma.producto.findUnique({ where: { id: Number(id) } });
+    const antes = await prisma.producto.findUnique({ where: { id } });
+    if (!antes) {
+      return NextResponse.json({ error: "PRODUCTO_NO_ENCONTRADO" }, { status: 404 });
+    }
+
     await prisma.producto.update({
-      where: { id: Number(id) },
-      data: { activo: false },
+      where: { id },
+      data: {
+        activo: false,
+        eliminadoEn: new Date(),
+        eliminadoPorId: auth.sub,
+        eliminadoPorNombre: auth.nombre,
+        motivoEliminacion: motivo.slice(0, 300),
+      },
     });
 
     await auditLogSafe(
@@ -121,8 +182,8 @@ export async function DELETE(request: Request) {
         entidad: "Producto",
         entidadId: id,
         antes,
-        despues: { id: Number(id), activo: false },
-        motivo: "Desactivación desde la carta",
+        despues: { id, activo: false, motivoEliminacion: motivo },
+        motivo,
       },
       getAuditContext(request)
     );

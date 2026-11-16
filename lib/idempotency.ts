@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +14,13 @@ let lastCleanup = 0;
 type BeginResult =
   | { type: "proceed" }
   | { type: "in_progress" }
+  | { type: "conflict" }
   | { type: "completed"; status: number; body: unknown };
+
+export interface IdempotencyOptions {
+  required?: boolean;
+  scope?: string;
+}
 
 function parseResponse(value: string | null): unknown {
   if (!value) return null;
@@ -24,6 +31,10 @@ function parseResponse(value: string | null): unknown {
   }
 }
 
+function hash(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 async function cleanupExpired(now: Date) {
   if (Date.now() - lastCleanup < CLEANUP_INTERVAL_MS) return;
   lastCleanup = Date.now();
@@ -32,13 +43,20 @@ async function cleanupExpired(now: Date) {
     .catch(() => undefined);
 }
 
-async function beginIdempotency(key: string): Promise<BeginResult> {
+async function beginIdempotency(
+  key: string,
+  scope: string,
+  requestHash: string
+): Promise<BeginResult> {
   const now = new Date();
   await cleanupExpired(now);
 
   const existing = await prisma.idempotencyKey.findUnique({ where: { key } });
 
   if (existing) {
+    if (existing.requestHash && existing.requestHash !== requestHash) {
+      return { type: "conflict" };
+    }
     if (existing.expiresAt <= now) {
       await prisma.idempotencyKey.delete({ where: { id: existing.id } }).catch(() => undefined);
     } else if (existing.status === 0) {
@@ -62,6 +80,8 @@ async function beginIdempotency(key: string): Promise<BeginResult> {
       data: {
         id: generateIdempotencyKey(),
         key,
+        scope,
+        requestHash,
         status: 0,
         response: null,
         expiresAt: new Date(now.getTime() + TTL_MS),
@@ -71,6 +91,9 @@ async function beginIdempotency(key: string): Promise<BeginResult> {
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const row = await prisma.idempotencyKey.findUnique({ where: { key } });
+      if (row && row.requestHash && row.requestHash !== requestHash) {
+        return { type: "conflict" };
+      }
       if (row && row.status > 0) {
         return { type: "completed", status: row.status, body: parseResponse(row.response) };
       }
@@ -104,25 +127,58 @@ function isCacheableStatus(status: number) {
 
 /**
  * Envuelve un handler de ruta para hacerlo idempotente usando la cabecera
- * `X-Idempotency-Key`. Si la clave ya se procesó, devuelve la respuesta previa
- * sin ejecutar nuevamente la lógica de negocio.
+ * `X-Idempotency-Key`. La clave se aísla por scope para evitar colisiones.
  */
 export async function withIdempotency(
   request: Request,
-  handler: () => Promise<NextResponse>
+  handler: () => Promise<NextResponse>,
+  options: IdempotencyOptions = {}
 ): Promise<NextResponse> {
-  const key = request.headers.get("x-idempotency-key")?.trim();
+  const rawKey = request.headers.get("x-idempotency-key")?.trim();
+  const { required = false, scope = "global" } = options;
 
-  if (!key) return handler();
+  if (!rawKey) {
+    if (required) {
+      return NextResponse.json(
+        {
+          error: "IDEMPOTENCY_KEY_REQUERIDA",
+          message: "Debes enviar la cabecera X-Idempotency-Key para esta operación.",
+        },
+        { status: 400 }
+      );
+    }
+    return handler();
+  }
 
-  if (key.length > MAX_KEY_LENGTH) {
+  if (rawKey.length > MAX_KEY_LENGTH) {
     return NextResponse.json(
       { error: "IDEMPOTENCY_KEY_INVALIDA", message: "La clave de idempotencia es demasiado larga." },
       { status: 400 }
     );
   }
 
-  const state = await beginIdempotency(key);
+  const scopeValue = scope.slice(0, 150);
+  const key = hash(`${scopeValue}:${rawKey}`);
+  let bodyText = "";
+  try {
+    bodyText = await request.clone().text();
+  } catch {
+    bodyText = "";
+  }
+  const requestHash = hash(
+    `${request.method}:${new URL(request.url).pathname}:${bodyText}`
+  );
+  const state = await beginIdempotency(key, scopeValue, requestHash);
+
+  if (state.type === "conflict") {
+    return NextResponse.json(
+      {
+        error: "IDEMPOTENCY_CONFLICT",
+        message: "La clave ya fue usada con un cuerpo de solicitud diferente.",
+      },
+      { status: 409 }
+    );
+  }
 
   if (state.type === "completed") {
     return NextResponse.json(state.body, { status: state.status });

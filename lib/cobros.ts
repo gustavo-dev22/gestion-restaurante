@@ -12,6 +12,7 @@ import {
 } from "@/lib/caja-types";
 import type { SessionPayload } from "@/lib/auth/session";
 import { actorFromSession, auditLog, type AuditContext } from "@/lib/audit";
+import { ACTIVE_ORDER_STATUSES, normalizeOrderStatus } from "@/lib/order-status";
 
 function toNumber(value: Prisma.Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
@@ -185,7 +186,7 @@ function mapCuenta(pedido: CuentaPedidoQuery): CuentaPedidoDto {
           createdAt: pedido.comprobante.createdAt.toISOString(),
         }
       : null,
-    esCuentaActual: pedido.estado === "Pendiente",
+    esCuentaActual: ACTIVE_ORDER_STATUSES.includes(normalizeOrderStatus(pedido.estado)),
   };
 }
 
@@ -260,6 +261,13 @@ export async function aplicarDescuento(
       });
 
       if (!pedido) throw new CajaError(404, "PEDIDO_NO_ENCONTRADO", "Pedido no encontrado.");
+      if (!ACTIVE_ORDER_STATUSES.includes(normalizeOrderStatus(pedido.estado))) {
+        throw new CajaError(
+          409,
+          "ESTADO_INVALIDO",
+          "No se puede aplicar un descuento a un pedido cerrado o anulado."
+        );
+      }
       if (pedido.pagos.length > 0) {
         throw new CajaError(
           409,
@@ -791,7 +799,7 @@ export async function anularPago(
           totalPagado,
           saldo,
           estadoPago: pagado ? "Pagado" : totalPagado > 0 ? "Parcial" : "Pendiente",
-          estado: pagado ? "Pagado" : "Pendiente",
+          estado: pagado ? "PAGADO" : "POR_COBRAR",
           pagadoEn: pagado ? pedido.pagadoEn : null,
         },
       });

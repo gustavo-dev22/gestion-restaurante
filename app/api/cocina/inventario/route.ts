@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { actorFromSession, auditLogSafe, getAuditContext } from '@/lib/audit';
 import { authorizeLocal } from '@/lib/rbac';
+import { parseJson, idSchema } from '@/lib/api-validation';
+import { z } from 'zod';
+
+const inventarioSchema = z.object({ id: idSchema, activo: z.boolean() });
 
 // GET: Obtener todos los productos para el monitor de cocina
 export async function GET() {
@@ -22,11 +26,13 @@ export async function PATCH(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const { id, activo } = await request.json();
-    const antes = await prisma.producto.findUnique({ where: { id: Number(id) } });
+    const parsed = await parseJson(request, inventarioSchema);
+    if (!parsed.success) return parsed.response;
+    const { id, activo } = parsed.data;
+    const antes = await prisma.producto.findUnique({ where: { id } });
     const actualizado = await prisma.producto.update({
-      where: { id: Number(id) },
-      data: { activo: Boolean(activo) }
+      where: { id },
+      data: { activo }
     });
 
     await auditLogSafe(

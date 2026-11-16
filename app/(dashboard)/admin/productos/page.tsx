@@ -15,7 +15,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toastSuccess, toastError } from "@/components/ui/Toast";
 import { http } from "@/lib/http";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { resolveIcon } from "@/lib/icons";
 import { useDebounce } from "@/lib/useDebounce";
 
@@ -35,6 +35,16 @@ interface CategoriaOption {
   id: number;
   nombre: string;
 }
+
+interface PrecioHistorial {
+  id: number;
+  precioAnterior: number | string | null;
+  precioNuevo: number | string;
+  motivo: string | null;
+  usuarioNombre: string | null;
+  createdAt: string;
+}
+
 
 interface ProductoForm {
   nombre: string;
@@ -101,6 +111,7 @@ export default function ProductosPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [historial, setHistorial] = useState<PrecioHistorial[]>([]);
 
 
   const productosFiltrados = useMemo(() => {
@@ -122,6 +133,7 @@ export default function ProductosPage() {
     setEditing(null);
     setForm({ ...emptyForm, categoriaId: String(categorias[0]?.id ?? "") });
     setErrors({});
+    setHistorial([]);
     setFormOpen(true);
   };
 
@@ -137,6 +149,10 @@ export default function ProductosPage() {
     });
     setErrors({});
     setFormOpen(true);
+    void http
+      .get<PrecioHistorial[]>(`/api/productos/${producto.id}/precios`)
+      .then(setHistorial)
+      .catch(() => setHistorial([]));
   };
 
   const validate = () => {
@@ -185,9 +201,11 @@ export default function ProductosPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    const motivo = window.prompt("Motivo de la eliminación:", "Producto descontinuado");
+    if (!motivo || motivo.trim().length < 3) return;
     setDeleting(true);
     try {
-      await http.delete(`/api/productos?id=${deleteTarget.id}`);
+      await http.delete(`/api/productos?id=${deleteTarget.id}&motivo=${encodeURIComponent(motivo.trim())}`);
       toastSuccess("Producto eliminado", `${deleteTarget.nombre} se quitó de la carta.`);
       setDeleteTarget(null);
       void mutateProductos();
@@ -421,6 +439,23 @@ export default function ProductosPage() {
               onChange={(event) => setForm({ ...form, stock: event.target.value })}
             />
           </div>
+
+          {editing && historial.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <h3 className="mb-2 text-sm font-bold text-slate-700">Historial de precios</h3>
+              <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-slate-600">
+                {historial.map((item) => (
+                  <li key={item.id} className="flex justify-between gap-3">
+                    <span>
+                      {formatCurrency(item.precioAnterior ?? 0)} →{" "}
+                      <b className="text-slate-800">{formatCurrency(item.precioNuevo)}</b>
+                    </span>
+                    <span>{formatDateTime(item.createdAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </form>
       </Modal>
 

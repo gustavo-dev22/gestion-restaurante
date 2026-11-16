@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/auth/session';
+import { ACTIVE_ORDER_STATUSES } from '@/lib/order-status';
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
 
     const pedidos = await prisma.pedido.findMany({
       where: {
-        estado: 'Pendiente',
+        estado: { in: [...ACTIVE_ORDER_STATUSES] },
         usuarioId,
       },
       include: {

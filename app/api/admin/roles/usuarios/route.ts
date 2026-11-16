@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { actorFromSession, auditLog, getAuditContext } from "@/lib/audit";
 import { authorizeLocal } from "@/lib/rbac";
+import { userRolesSchema } from "@/lib/api-validation";
 
 function parseRoleIds(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
@@ -18,18 +19,15 @@ export async function PATCH(request: Request) {
   const auth = await authorizeLocal(request, "roles:manage");
   if (auth instanceof NextResponse) return auth;
 
-  const body = (await request.json().catch(() => null)) as
-    | { usuarioId?: unknown; rolIds?: unknown }
-    | null;
-  const usuarioId = Number(body?.usuarioId);
-  const rolIds = parseRoleIds(body?.rolIds);
-
-  if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+  const parsed = userRolesSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "USUARIO_INVALIDO", message: "El usuario es inválido." },
+      { error: "VALIDACION", message: "Datos inválidos" },
       { status: 400 }
     );
   }
+  const usuarioId = parsed.data.usuarioId;
+  const rolIds = parseRoleIds(parsed.data.rolIds);
 
   const [usuario, roles, antes] = await Promise.all([
     prisma.usuarioApp.findUnique({ where: { id: usuarioId } }),

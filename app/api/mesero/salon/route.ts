@@ -1,34 +1,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionFromRequest } from '@/lib/auth/session';
+import { authorizeLocal } from '@/lib/rbac';
+import { parseJson, salonMesaSchema } from '@/lib/api-validation';
 import { logger } from '@/lib/logger';
 import { revalidateTag } from 'next/cache';
-
-const RESERVA_VENTANA_MS = 2 * 60 * 60 * 1000;
+import { getFranjaInicio } from "@/lib/reservation-slot";
 
 export async function PATCH(request: Request) {
+  const session = await authorizeLocal(request, "orders:accept");
+  if (session instanceof NextResponse) return session;
+
+  const parsed = await parseJson(request, salonMesaSchema);
+  if (!parsed.success) return parsed.response;
+  const mesaId = parsed.data.mesaId;
+
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const mesaId = Number(body?.mesaId);
-
-    if (!mesaId || Number.isNaN(mesaId)) {
-      return NextResponse.json({ error: 'Mesa ID faltante' }, { status: 400 });
-    }
 
     const ahora = Date.now();
     const reservaCercana = await prisma.reserva.findFirst({
       where: {
         mesaId,
         estado: 'Confirmada',
-        fechaReserva: {
-          gte: new Date(ahora - RESERVA_VENTANA_MS),
-          lte: new Date(ahora + RESERVA_VENTANA_MS),
-        },
+        franjaInicio: getFranjaInicio(new Date(ahora)),
       },
       select: { id: true },
     });
@@ -64,7 +57,8 @@ export async function PATCH(request: Request) {
           totalPagado: 0,
           saldo: 0,
           estadoPago: 'Pendiente',
-          estado: 'Pendiente',
+          estado: 'BORRADOR',
+          origen: 'POS',
           fecha_creacion: new Date(),
         },
       });

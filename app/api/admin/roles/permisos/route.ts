@@ -5,6 +5,7 @@ import {
   authorizeLocal,
   normalizePermissionCodes,
 } from "@/lib/rbac";
+import { rolePermissionsSchema } from "@/lib/api-validation";
 
 export async function PATCH(request: Request) {
   const auth = await authorizeLocal(request, "roles:manage");
@@ -13,7 +14,14 @@ export async function PATCH(request: Request) {
   const body = (await request.json().catch(() => null)) as
     | { rolId?: unknown; permisos?: unknown }
     | null;
-  const rolId = Number(body?.rolId);
+  const parsed = rolePermissionsSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "VALIDACION", message: "Datos inválidos" },
+      { status: 400 }
+    );
+  }
+  const rolId = parsed.data.rolId;
   if (!Number.isInteger(rolId) || rolId <= 0) {
     return NextResponse.json(
       { error: "ROL_INVALIDO", message: "El rol es inválido." },
@@ -29,7 +37,7 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const codigos = normalizePermissionCodes(body?.permisos);
+  const codigos = normalizePermissionCodes(parsed.data.permisos);
   if (rol.codigo === "ADMIN" && !codigos.includes("roles:manage")) {
     return NextResponse.json(
       {

@@ -7,7 +7,7 @@ export async function GET() {
     await expireStaleQrOrders();
 
     const pendientes = await prisma.pedido.findMany({
-      where: { estado: 'Por Confirmar' },
+      where: { estado: 'BORRADOR' },
       include: { mesa: true },
       orderBy: { fecha_creacion: 'asc' }
     });

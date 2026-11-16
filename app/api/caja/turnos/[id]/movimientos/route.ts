@@ -4,6 +4,7 @@ import { cajaErrorResponse, revalidateCaja } from "@/lib/caja-http";
 import { authorizeLocal } from "@/lib/rbac";
 import { getAuditContext } from "@/lib/audit";
 import { withIdempotency } from "@/lib/idempotency";
+import { parseJson, movimientoCajaSchema } from "@/lib/api-validation";
 
 export async function POST(
   request: Request,
@@ -16,16 +17,15 @@ export async function POST(
     try {
       const { id } = await params;
       const turnoId = Number(id);
-      const body = (await request.json().catch(() => null)) as
-        | { tipo?: unknown; monto?: unknown; motivo?: unknown }
-        | null;
+      const parsed = await parseJson(request, movimientoCajaSchema);
+      if (!parsed.success) return parsed.response;
 
       const movimiento = await registrarMovimiento(
         auth,
         turnoId,
-        body?.tipo,
-        body?.monto,
-        body?.motivo,
+        parsed.data.tipo,
+        parsed.data.monto,
+        parsed.data.motivo,
         getAuditContext(request)
       );
       revalidateCaja();
@@ -33,5 +33,7 @@ export async function POST(
     } catch (error) {
       return cajaErrorResponse(error);
     }
-  });
+    },
+    { scope: "caja:movements" }
+  );
 }

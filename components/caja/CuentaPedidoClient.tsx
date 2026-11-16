@@ -479,7 +479,7 @@ export function CuentaPedidoClient({
                   <td className="px-5 py-3 font-semibold text-slate-800">
                     {detalle.nombre}
                     {detalle.estado && (
-                      <Badge className="ml-2" tone={detalle.estado === "Listo" ? "emerald" : "amber"}>
+                      <Badge className="ml-2" tone={detalle.estado === "LISTO" ? "emerald" : "amber"}>
                         {detalle.estado}
                       </Badge>
                     )}

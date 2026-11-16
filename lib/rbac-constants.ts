@@ -16,6 +16,8 @@ export type PermissionCode =
   | "reservations:manage"
   | "orders:accept"
   | "orders:cancel"
+  | "orders:prepare"
+  | "orders:serve"
   | "reports:read"
   | "reports:export";
 
@@ -137,6 +139,18 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
     descripcion: "Cancelar pedidos sin consumo y liberar la mesa.",
   },
   {
+    codigo: "orders:prepare",
+    nombre: "Iniciar preparación",
+    grupo: "Pedidos",
+    descripcion: "Iniciar y completar la preparación de platos.",
+  },
+  {
+    codigo: "orders:serve",
+    nombre: "Servir y atender mesas",
+    grupo: "Pedidos",
+    descripcion: "Marcar pedidos servidos y atender llamados.",
+  },
+  {
     codigo: "reports:read",
     nombre: "Ver reportes",
     grupo: "Reportes",
@@ -186,13 +200,13 @@ export const ROLE_DEFINITIONS: readonly RoleDefinition[] = [
     codigo: "MESERO",
     nombre: "Mesero",
     descripcion: "Pedidos, aceptación de QR y cobro del saldo completo.",
-    permisos: ["orders:accept", "orders:cancel", "payments:create"],
+    permisos: ["orders:accept", "orders:cancel", "orders:serve", "payments:create"],
   },
   {
     codigo: "COCINA",
     nombre: "Cocina / Bar",
     descripcion: "Comandas y ajuste de disponibilidad de productos.",
-    permisos: ["stock:adjust"],
+    permisos: ["stock:adjust", "orders:prepare"],
   },
   {
     codigo: "AUDITOR",

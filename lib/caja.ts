@@ -20,6 +20,7 @@ import {
 } from "@/lib/caja-types";
 import type { SessionPayload } from "@/lib/auth/session";
 import { actorFromSession, auditLog, type AuditContext } from "@/lib/audit";
+import { CHARGEABLE_ORDER_STATUSES } from "@/lib/order-status";
 
 type PagoConPedido = {
   id: number;
@@ -376,7 +377,7 @@ export async function getReporteTurno(turnoId: number): Promise<ReporteCajaDto |
 
 export async function getPedidosPorCobrar(): Promise<PedidoPorCobrarDto[]> {
   const pedidos = await prisma.pedido.findMany({
-    where: { estado: "Pendiente" },
+    where: { estado: { in: [...CHARGEABLE_ORDER_STATUSES] } },
     include: {
       mesa: { select: { numero: true } },
       detalles: {
@@ -391,7 +392,9 @@ export async function getPedidosPorCobrar(): Promise<PedidoPorCobrarDto[]> {
     .filter(
       (pedido) =>
         pedido.detalles.length > 0 &&
-        pedido.detalles.every((detalle) => detalle.estado === "Listo")
+        pedido.detalles.every((detalle) =>
+          ["LISTO", "SERVIDO"].includes(detalle.estado)
+        )
     )
     .map((pedido) => ({
       id: pedido.id,
@@ -866,6 +869,24 @@ export async function cerrarTurno(
         },
       });
 
+      const pedidosPagados = pedidoIds.length
+        ? await tx.pedido.findMany({
+            where: {
+              id: { in: pedidoIds },
+              estado: "PAGADO",
+              estadoPago: "Pagado",
+            },
+            select: { id: true },
+          })
+        : [];
+
+      if (pedidosPagados.length > 0) {
+        await tx.pedido.updateMany({
+          where: { id: { in: pedidosPagados.map((pedido) => pedido.id) } },
+          data: { estado: "CERRADO", cerradoEn },
+        });
+      }
+
       await tx.cajaEvento.create({
         data: {
           turnoId,
@@ -913,6 +934,26 @@ export async function cerrarTurno(
               justificacion: razon || null,
             },
             motivo: razon || "Cierre de caja",
+            turnoId,
+          },
+          audit,
+          tx
+        );
+      }
+
+      if (audit && pedidosPagados.length > 0) {
+        await auditLog(
+          {
+            actor: actorFromSession(actor),
+            accion: "order.close",
+            entidad: "Pedido",
+            entidadId: pedidosPagados.map((pedido) => pedido.id).join(","),
+            despues: {
+              pedidoIds: pedidosPagados.map((pedido) => pedido.id),
+              estado: "CERRADO",
+              turnoId,
+            },
+            motivo: "Cierre automático al cerrar caja",
             turnoId,
           },
           audit,

@@ -10,6 +10,7 @@ import { useVisibilityPolling } from '@/lib/useVisibilityPolling';
 interface Comanda {
   id: number;
   cantidad: number;
+  estado: string;
   producto: { nombre: string; descripcion: string | null };
   pedido: { mesa: { numero: string }; fecha_creacion: string };
 }
@@ -78,13 +79,30 @@ export default function ComandasCocinaPage() {
     return `${cantidad} ${label}`;
   };
 
+  const iniciarPlato = async (id: number) => {
+    try {
+      await http.patch("/api/cocina/comandas", {
+        detalleId: id,
+        nuevoEstado: "EN_PREPARACION",
+      });
+      setComandas((prev) =>
+        prev.map((comanda) =>
+          comanda.id === id ? { ...comanda, estado: "EN_PREPARACION" } : comanda
+        )
+      );
+      toastSuccess("Preparación iniciada", "El pedido pasó a cocina.");
+    } catch {
+      toastError("No se pudo iniciar", "Intenta nuevamente en unos segundos.");
+    }
+  };
+
   const completarPlato = async () => {
     if (!pendiente) return;
     setCompletando(true);
     try {
       await http.patch('/api/cocina/comandas', {
         detalleId: pendiente.id,
-        nuevoEstado: 'Listo',
+        nuevoEstado: 'LISTO',
       });
 
       setComandas((prev) => prev.filter((comanda) => comanda.id !== pendiente.id));
@@ -187,7 +205,13 @@ export default function ComandasCocinaPage() {
 
             <button 
               type="button"
-              onClick={() => setPendiente({ id: comanda.id, nombre: comanda.producto.nombre })}
+              onClick={() => {
+                if (comanda.estado === "PENDIENTE") {
+                  void iniciarPlato(comanda.id);
+                  return;
+                }
+                setPendiente({ id: comanda.id, nombre: comanda.producto.nombre });
+              }}
               className={`flex w-full items-center justify-center gap-2 py-4 font-bold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
                 areaActual === 'Bebidas'
                   ? 'bg-blue-500 hover:bg-blue-600'
@@ -197,11 +221,13 @@ export default function ComandasCocinaPage() {
               }`}
             >
               <CheckCircle2 size={20} /> 
-              {areaActual === 'Bebidas'
-                ? 'BEBIDA LISTA'
-                : areaActual === 'Postres'
-                  ? 'POSTRE LISTO'
-                  : 'PLATO TERMINADO'}
+              {comanda.estado === "PENDIENTE"
+                ? "INICIAR PREPARACIÓN"
+                : areaActual === 'Bebidas'
+                  ? 'BEBIDA LISTA'
+                  : areaActual === 'Postres'
+                    ? 'POSTRE LISTO'
+                    : 'PLATO TERMINADO'}
             </button>
           </div>
         ))}

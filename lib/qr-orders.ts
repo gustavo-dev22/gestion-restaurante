@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { ACTIVE_ORDER_STATES, QR_PENDING_TTL_MS } from "@/lib/order-config";
+import { ACTIVE_ORDER_STATES, QR_PENDING_STATUS, QR_PENDING_TTL_MS } from "@/lib/order-config";
 
 /**
  * Marca como "Expirado" los pedidos QR que llevan más de 5 minutos sin ser
@@ -12,7 +12,8 @@ export async function expireStaleQrOrders(): Promise<number> {
 
   const vencidos = await prisma.pedido.findMany({
     where: {
-      estado: "Por Confirmar",
+      estado: QR_PENDING_STATUS,
+      origen: "QR",
       fecha_creacion: { lt: cutoff },
     },
     select: { id: true, mesaId: true },
@@ -25,8 +26,12 @@ export async function expireStaleQrOrders(): Promise<number> {
   for (const pedido of vencidos) {
     await prisma.$transaction(async (tx) => {
       const actualizado = await tx.pedido.updateMany({
-        where: { id: pedido.id, estado: "Por Confirmar" },
-        data: { estado: "Expirado" },
+        where: { id: pedido.id, estado: QR_PENDING_STATUS },
+        data: {
+          estado: "ANULADO",
+          motivoAnulacion: "Pedido QR expirado",
+          anuladoEn: new Date(),
+        },
       });
 
       if (actualizado.count === 0) return;

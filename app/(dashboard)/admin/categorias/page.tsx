@@ -138,9 +138,11 @@ export default function CategoriasPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    const motivo = window.prompt("Motivo de la desactivación:", "Categoría descontinuada");
+    if (!motivo || motivo.trim().length < 3) return;
     setDeleting(true);
     try {
-      const data = await http.delete<{ success: boolean; message: string }>(`/api/categorias?id=${deleteTarget.id}`);
+      const data = await http.delete<{ success: boolean; message: string }>(`/api/categorias?id=${deleteTarget.id}&motivo=${encodeURIComponent(motivo.trim())}`);
       if (data.success) {
         toastSuccess("Categoría desactivada", data.message);
         setDeleteTarget(null);
