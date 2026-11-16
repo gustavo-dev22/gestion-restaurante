@@ -57,9 +57,11 @@ model Pedido {
   total          Decimal?        @default(0.00, map: "DF__Pedidos__total__46E78A0C") @db.Decimal(10, 2)
   estado         String?         @default("Pendiente", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(20)
   fecha_creacion DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
+  pagadoEn       DateTime?       @db.DateTime2
   nombreMesero   String?         @db.NVarChar(100)
   metodoPago     String?         @db.NVarChar(30)
   detalles       PedidoDetalle[]
+  pagos          Pago[]
   mesa           Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
 
   @@map("Pedidos")
@@ -91,6 +93,93 @@ model Reserva {
   mesa            Mesa     @relation("MesaAReservas", fields: [mesaId], references: [id])
 
   @@map("Reservas")
+}
+
+model TurnoCaja {
+  id               Int       @id @default(autoincrement())
+  cajeroId         String    @db.UniqueIdentifier
+  cajeroNombre     String    @db.NVarChar(150)
+  estado           String    @default("Abierto") @db.NVarChar(20)
+  abiertoEn        DateTime  @default(now()) @db.DateTime2
+  cerradoEn        DateTime? @db.DateTime2
+  fondoInicial     Decimal   @default(0) @db.Decimal(10, 2)
+  totalEfectivo    Decimal   @default(0) @db.Decimal(10, 2)
+  totalTarjeta     Decimal   @default(0) @db.Decimal(10, 2)
+  totalBilleteras  Decimal   @default(0) @db.Decimal(10, 2)
+  totalOtros       Decimal   @default(0) @db.Decimal(10, 2)
+  totalVentas      Decimal   @default(0) @db.Decimal(10, 2)
+  totalIngresos    Decimal   @default(0) @db.Decimal(10, 2)
+  totalRetiros     Decimal   @default(0) @db.Decimal(10, 2)
+  totalGastos      Decimal   @default(0) @db.Decimal(10, 2)
+  efectivoEsperado Decimal?  @db.Decimal(10, 2)
+  efectivoContado  Decimal?  @db.Decimal(10, 2)
+  diferencia       Decimal?  @db.Decimal(10, 2)
+  justificacion    String?   @db.NVarChar(500)
+  cerradoPorId     String?   @db.UniqueIdentifier
+  cerradoPorNombre String?   @db.NVarChar(150)
+  createdAt        DateTime  @default(now()) @db.DateTime2
+  updatedAt        DateTime  @updatedAt @db.DateTime2
+  pagos            Pago[]
+  movimientos      MovimientoCaja[]
+  eventos          CajaEvento[]
+
+  @@index([estado, abiertoEn])
+  @@map("TurnosCaja")
+}
+
+model Pago {
+  id              Int        @id @default(autoincrement())
+  pedidoId        Int
+  turnoId         Int?
+  cajeroId        String?    @db.UniqueIdentifier
+  cajeroNombre    String?    @db.NVarChar(150)
+  metodo          String     @db.NVarChar(30)
+  monto           Decimal    @db.Decimal(10, 2)
+  propina         Decimal    @default(0) @db.Decimal(10, 2)
+  descuento       Decimal    @default(0) @db.Decimal(10, 2)
+  referencia      String?    @db.NVarChar(100)
+  estado          String     @default("Registrado") @db.NVarChar(20)
+  origen          String     @default("POS") @db.NVarChar(20)
+  conciliadoEn    DateTime?  @db.DateTime2
+  conciliadoPorId String?    @db.UniqueIdentifier
+  createdAt       DateTime   @default(now()) @db.DateTime2
+  pedido          Pedido     @relation(fields: [pedidoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_Pedidos")
+  turno           TurnoCaja? @relation(fields: [turnoId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Pagos_TurnosCaja")
+
+  @@index([turnoId, estado])
+  @@index([pedidoId])
+  @@index([createdAt])
+  @@map("Pagos")
+}
+
+model MovimientoCaja {
+  id            Int       @id @default(autoincrement())
+  turnoId       Int
+  tipo          String    @db.NVarChar(20)
+  monto         Decimal   @db.Decimal(10, 2)
+  motivo        String    @db.NVarChar(300)
+  usuarioId     String    @db.UniqueIdentifier
+  usuarioNombre String    @db.NVarChar(150)
+  createdAt     DateTime  @default(now()) @db.DateTime2
+  turno         TurnoCaja @relation(fields: [turnoId], references: [id], onUpdate: NoAction, map: "FK_MovimientosCaja_TurnosCaja")
+
+  @@index([turnoId, createdAt])
+  @@map("MovimientosCaja")
+}
+
+model CajaEvento {
+  id            Int       @id @default(autoincrement())
+  turnoId       Int
+  tipo          String    @db.NVarChar(30)
+  detalle       String?   @db.NVarChar(Max)
+  monto         Decimal?  @db.Decimal(10, 2)
+  usuarioId     String?   @db.UniqueIdentifier
+  usuarioNombre String?   @db.NVarChar(150)
+  createdAt     DateTime  @default(now()) @db.DateTime2
+  turno         TurnoCaja @relation(fields: [turnoId], references: [id], onUpdate: NoAction, map: "FK_CajaEventos_TurnosCaja")
+
+  @@index([turnoId, createdAt])
+  @@map("CajaEventos")
 }
 
 model IdempotencyKey {

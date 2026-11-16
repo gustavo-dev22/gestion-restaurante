@@ -47,6 +47,7 @@ describe("sasi-session", () => {
     expect(session?.home).toBe("/mesero/salon");
     expect(session?.sections).toContain("mesero");
     expect(session?.authMethod).toBe("direct");
+    expect(session?.cashPermissions).toEqual({});
   });
 
   it("marca la sesión como SSO cuando se solicita", () => {

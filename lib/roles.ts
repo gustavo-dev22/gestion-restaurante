@@ -10,6 +10,7 @@ const PUBLIC_PATHS = ["/", "/login", "/sso-callback", "/reservar", "/cliente"];
 
 const PREFERRED_HOME = [
   "/admin/dashboard",
+  "/caja",
   "/admin/productos",
   "/mesero/salon",
   "/mesero/mis-pedidos",
@@ -108,6 +109,7 @@ export function getHomePath(user: AuthUserLike | null | undefined): string {
   }
 
   const role = getRoleName(user).toLowerCase();
+  if (/(cajero|caja|tesorer)/.test(role)) return "/caja";
   if (/(admin|administrador|gerente|dueño|dueno)/.test(role)) return "/admin/dashboard";
   if (/(mesero|waiter|salón|salon|atención|atencion)/.test(role)) return "/mesero/salon";
   if (/(cocina|chef|cocinero|bar|bebidas|postres)/.test(role)) return "/cocina/comandas";
@@ -115,7 +117,7 @@ export function getHomePath(user: AuthUserLike | null | undefined): string {
   return "/dashboard";
 }
 
-const SECTIONS = ["admin", "mesero", "cocina"] as const;
+const SECTIONS = ["admin", "mesero", "cocina", "caja"] as const;
 type Section = (typeof SECTIONS)[number];
 
 function isSection(value: string): value is Section {
@@ -142,6 +144,7 @@ export function getSections(user: AuthUserLike | null | undefined): string[] {
 
   if (/(mesero|waiter|salón|salon|atención|atencion)/.test(role)) sections.add("mesero");
   if (/(cocina|chef|cocinero|bar|bebidas|postres)/.test(role)) sections.add("cocina");
+  if (/(cajero|caja|tesorer)/.test(role)) sections.add("caja");
 
   return Array.from(sections);
 }

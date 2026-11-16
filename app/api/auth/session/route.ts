@@ -15,5 +15,6 @@ export async function GET(request: Request) {
     rol: session.rol,
     home: session.home,
     nombre: session.nombre,
+    cashPermissions: session.cashPermissions ?? {},
   });
 }

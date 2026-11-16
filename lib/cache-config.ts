@@ -9,6 +9,7 @@
 export const CACHE_TAGS = {
   reports: "reportes",
   dashboard: "dashboard",
+  caja: "caja",
 } as const;
 
 export const CACHE_REVALIDATE_SECONDS = 30;

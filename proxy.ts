@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
 
-type Requirement = "admin" | "mesero" | "cocina" | "any" | null;
+type Requirement = "admin" | "mesero" | "cocina" | "caja" | "any" | null;
 
 const SHARED_RESOURCES = ["/api/categorias", "/api/productos", "/api/mesas"];
 
@@ -10,6 +10,7 @@ function requiredSection(pathname: string, method: string): Requirement {
   if (pathname.startsWith("/api/dashboard")) return "admin";
   if (pathname.startsWith("/mesero") || pathname.startsWith("/api/mesero")) return "mesero";
   if (pathname.startsWith("/cocina") || pathname.startsWith("/api/cocina")) return "cocina";
+  if (pathname.startsWith("/caja") || pathname.startsWith("/api/caja")) return "caja";
 
   const isShared = SHARED_RESOURCES.some(
     (resource) => pathname === resource || pathname.startsWith(`${resource}/`)
@@ -72,10 +73,12 @@ export const config = {
     "/admin/:path*",
     "/mesero/:path*",
     "/cocina/:path*",
+    "/caja/:path*",
     "/api/admin/:path*",
     "/api/dashboard/:path*",
     "/api/mesero/:path*",
     "/api/cocina/:path*",
+    "/api/caja/:path*",
     "/api/categorias/:path*",
     "/api/productos/:path*",
     "/api/mesas/:path*",

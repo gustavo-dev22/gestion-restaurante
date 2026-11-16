@@ -41,6 +41,7 @@ export default function ResumenPedido() {
   const [metodo, setMetodo] = useState("");
   const [metodoError, setMetodoError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [cajaAbierta, setCajaAbierta] = useState<boolean | null>(null);
 
   const fetchPedido = useCallback(async () => {
     setLoading(true);
@@ -61,6 +62,21 @@ export default function ResumenPedido() {
     fetchPedido();
   }, [fetchPedido]);
 
+  useEffect(() => {
+    let active = true;
+    http
+      .get<{ abierta: boolean }>("/api/mesero/caja-estado")
+      .then((data) => {
+        if (active) setCajaAbierta(Boolean(data?.abierta));
+      })
+      .catch(() => {
+        if (active) setCajaAbierta(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleCancelarApertura = async () => {
     setCanceling(true);
     try {
@@ -76,6 +92,13 @@ export default function ResumenPedido() {
   };
 
   const abrirPago = () => {
+    if (cajaAbierta === false) {
+      toastWarning(
+        "Caja cerrada",
+        "Solicita al cajero que abra el turno antes de cobrar."
+      );
+      return;
+    }
     setMetodo("");
     setMetodoError(null);
     setPayOpen(true);
@@ -96,7 +119,9 @@ export default function ResumenPedido() {
       router.push("/mesero/salon");
     } catch (error) {
       const data = error instanceof HttpError ? (error.data as { error?: string; message?: string } | null) : null;
-      if (data?.error === "COCINA_PENDIENTE") {
+      if (data?.error === "CAJA_CERRADA") {
+        toastWarning("Caja cerrada", data.message ?? "Solicita al cajero que abra el turno.");
+      } else if (data?.error === "COCINA_PENDIENTE") {
         toastWarning("Espera un momento", data.message ?? "Aún hay platos pendientes en cocina.");
       } else {
         toastError("No se pudo procesar el pago", "Intenta nuevamente en unos segundos.");
@@ -170,6 +195,15 @@ export default function ResumenPedido() {
         </div>
       </div>
 
+      {cajaAbierta === false && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800"
+        >
+          Caja cerrada. Solicita al cajero que abra el turno antes de cobrar.
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 sm:flex-row">
         <Button
           type="button"
@@ -180,7 +214,14 @@ export default function ResumenPedido() {
         >
           <Plus size={20} /> Agregar más
         </Button>
-        <Button type="button" variant="success" size="lg" className="flex-1" onClick={abrirPago}>
+        <Button
+          type="button"
+          variant="success"
+          size="lg"
+          className="flex-1"
+          onClick={abrirPago}
+          disabled={cajaAbierta === false}
+        >
           <Receipt size={20} /> Pagar cuenta
         </Button>
       </div>

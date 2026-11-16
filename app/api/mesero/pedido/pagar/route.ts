@@ -1,115 +1,40 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSessionFromRequest } from "@/lib/auth/session";
-import { calcularTotalPedido } from "@/lib/order-math";
-import { logger } from "@/lib/logger";
-import { revalidateTag } from "next/cache";
-
-const METODOS_PAGO = ["Efectivo", "Tarjeta", "Yape/Plin"];
+import { registrarPago } from "@/lib/payments";
+import { cajaErrorResponse, revalidateCaja } from "@/lib/caja-http";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function PATCH(request: Request) {
-  try {
+  return withIdempotency(request, async () => {
     const session = await getSessionFromRequest(request);
     if (!session) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
-
-    const { pedidoId, metodoPago } = await request.json();
-    const id = Number(pedidoId);
-
-    if (!id || Number.isNaN(id)) {
-      return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
-    }
-
-    if (!METODOS_PAGO.includes(metodoPago)) {
-      return NextResponse.json({ error: "Método de pago inválido" }, { status: 400 });
-    }
-
-    const pedido = await prisma.pedido.findUnique({
-      where: { id },
-      include: { detalles: { include: { producto: true } } },
-    });
-
-    if (!pedido) {
-      return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
-    }
-
-    const isAdmin = session.sections.includes("admin");
-    if (!isAdmin && pedido.usuarioId !== session.sub) {
       return NextResponse.json(
-        { error: "FORBIDDEN", message: "Solo el mesero responsable o un administrador puede cobrar este pedido." },
-        { status: 403 }
+        { error: "UNAUTHORIZED", message: "Debes iniciar sesión." },
+        { status: 401 }
       );
     }
 
-    if (pedido.estado !== "Pendiente") {
-      return NextResponse.json(
-        { error: "ESTADO_INVALIDO", message: "El pedido no está listo para cobro." },
-        { status: 400 }
-      );
-    }
+    try {
+      const body = (await request.json().catch(() => null)) as
+        | { pedidoId?: unknown; metodoPago?: unknown }
+        | null;
 
-    if (pedido.detalles.length === 0) {
-      return NextResponse.json(
-        { error: "PEDIDO_VACIO", message: "El pedido no tiene productos." },
-        { status: 400 }
-      );
-    }
-
-    const pendientes = pedido.detalles.filter((detalle) => detalle.estado !== "Listo");
-    if (pendientes.length > 0) {
-      return NextResponse.json(
-        {
-          error: "COCINA_PENDIENTE",
-          message: "No se puede cobrar. Aún hay platos pendientes en cocina.",
-        },
-        { status: 409 }
-      );
-    }
-
-    // Recálculo estricto usando los precios reales de la base de datos.
-    const lineas = pedido.detalles.map((detalle) => ({
-      id: detalle.id,
-      precioReal: Number(detalle.producto.precio),
-    }));
-
-    const totalReal = calcularTotalPedido(
-      pedido.detalles.map((detalle) => ({
-        precio: Number(detalle.producto.precio),
-        cantidad: detalle.cantidad,
-      }))
-    );
-
-    await prisma.$transaction(async (tx) => {
-      for (const linea of lineas) {
-        // 'subtotal' es una columna calculada en SQL Server: no se escribe.
-        await tx.pedidoDetalle.update({
-          where: { id: linea.id },
-          data: { precio_unitario: linea.precioReal },
-        });
-      }
-
-      await tx.pedido.update({
-        where: { id },
-        data: { estado: "Pagado", total: totalReal, metodoPago },
+      const resultado = await registrarPago({
+        actor: session,
+        pedidoId: Number(body?.pedidoId),
+        metodo: String(body?.metodoPago ?? ""),
+        allowAnyOrder: false,
       });
 
-      await tx.mesa.update({
-        where: { id: pedido.mesaId },
-        data: { estado: "Libre" },
+      revalidateCaja();
+
+      return NextResponse.json({
+        message: "Pago procesado y mesa liberada",
+        ...resultado,
+        metodoPago: resultado.metodo,
       });
-    });
-
-    revalidateTag("reportes", "max");
-    revalidateTag("dashboard", "max");
-
-    return NextResponse.json({
-      message: "Pago procesado y mesa liberada",
-      total: totalReal,
-      metodoPago,
-    });
-  } catch (error) {
-    logger.error("Error al procesar pago", { error });
-    return NextResponse.json({ error: "Error al procesar el pago" }, { status: 500 });
-  }
+    } catch (error) {
+      return cajaErrorResponse(error);
+    }
+  });
 }

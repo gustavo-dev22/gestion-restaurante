@@ -1,4 +1,5 @@
 import { getHomePath, getRoleName, getSections, type AuthUserLike } from "@/lib/roles";
+import { getCashPermissions, type CashPermissions } from "@/lib/auth/cash-permissions";
 
 export const RESTAURANT_SYSTEM_ID = 13;
 
@@ -9,6 +10,7 @@ export interface LocalSessionData {
   home: string;
   sections: string[];
   authMethod: "direct" | "sso";
+  cashPermissions: CashPermissions;
 }
 
 /**
@@ -56,5 +58,6 @@ export function buildLocalSession(
     home,
     sections,
     authMethod,
+    cashPermissions: getCashPermissions(usuario),
   };
 }

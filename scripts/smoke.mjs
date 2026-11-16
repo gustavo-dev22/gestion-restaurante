@@ -94,7 +94,12 @@ async function main() {
     nombre: "Smoke Admin",
     rol: "Administrador",
     home: "/admin/dashboard",
-    sections: ["admin", "mesero", "cocina"],
+    sections: ["admin", "mesero", "cocina", "caja"],
+    cashPermissions: {
+      "/caja": ["LISTAR", "CREAR", "EDITAR", "EXPORTAR"],
+      "/caja/movimientos": ["LISTAR", "CREAR"],
+      "/caja/historial": ["LISTAR", "EXPORTAR"],
+    },
   });
   const meseroToken = await createToken({
     sub: MESERO_ID,
@@ -103,11 +108,20 @@ async function main() {
     home: "/mesero/salon",
     sections: ["mesero"],
   });
+  const cajaSinPermisosToken = await createToken({
+    sub: ADMIN_ID,
+    nombre: "Smoke Caja Sin Permisos",
+    rol: "Cajero",
+    home: "/caja",
+    sections: ["caja"],
+  });
 
   let mesaId = null;
   let productoId = null;
   let pedidoId = null;
   let llamadoId = null;
+  let turnoId = null;
+  let pagoId = null;
   let stockRestore = null;
 
   try {
@@ -130,8 +144,39 @@ async function main() {
       "Admin accede a /api/admin/ventas",
       (await api("/api/admin/ventas", { token: adminToken })).status === 200
     );
+    check(
+      "Caja sin acciones SASI responde 403",
+      (await api("/api/caja/turno-activo", { token: cajaSinPermisosToken })).status === 403
+    );
 
-    // 3) Stock insuficiente
+    // 3) Caja y turnos
+    const turnoActivo = await api("/api/caja/turno-activo", { token: adminToken });
+    if (turnoActivo.status === 200 && turnoActivo.data) {
+      throw new Error(
+        "Hay una caja abierta. Cierra el turno antes de ejecutar el smoke de caja."
+      );
+    }
+
+    const abrirCaja = await api("/api/caja/turnos", {
+      method: "POST",
+      token: adminToken,
+      body: { fondoInicial: 100 },
+    });
+    turnoId = abrirCaja.data?.turno?.id ?? null;
+    check(
+      "Caja abierta (200)",
+      abrirCaja.status === 200 && Boolean(turnoId),
+      `status=${abrirCaja.status}`
+    );
+
+    const movimiento = await api(`/api/caja/turnos/${turnoId}/movimientos`, {
+      method: "POST",
+      token: adminToken,
+      body: { tipo: "Gasto", monto: 10, motivo: "Gasto de prueba smoke" },
+    });
+    check("Movimiento de caja registrado (200)", movimiento.status === 200);
+
+    // 4) Stock insuficiente
     const productos = (await api("/api/public/productos")).data ?? [];
     const producto = productos.find((item) => Number(item.stock) >= 3);
     check("Existe un producto con stock >= 3 para probar", Boolean(producto));
@@ -248,15 +293,60 @@ async function main() {
     const pago = await api("/api/mesero/pedido/pagar", {
       method: "PATCH",
       token: adminToken,
-      body: { pedidoId, metodoPago: "Efectivo" },
+      body: { pedidoId, metodoPago: "Tarjeta" },
     });
-    check("Pago procesado (200)", pago.status === 200);
+    pagoId = pago.data?.pagoId ?? null;
+    check("Pago procesado (200)", pago.status === 200 && Boolean(pagoId));
 
     const pedidoFinal = await prisma.pedido.findUnique({ where: { id: pedidoId } });
     check("Pedido queda Pagado", pedidoFinal?.estado === "Pagado");
-    check("Método de pago persistido", pedidoFinal?.metodoPago === "Efectivo");
+    check("Método de pago persistido", pedidoFinal?.metodoPago === "Tarjeta");
     const mesaFinal = await prisma.mesa.findUnique({ where: { id: mesaId } });
     check("Mesa liberada tras el pago", mesaFinal?.estado === "Libre");
+
+    const cierrePendiente = await api(`/api/caja/turnos/${turnoId}/cerrar`, {
+      method: "POST",
+      token: adminToken,
+      body: { efectivoContado: 90 },
+    });
+    check(
+      "Cierre bloqueado con pago electrónico pendiente (409)",
+      cierrePendiente.status === 409 &&
+        cierrePendiente.data?.error === "PAGOS_PENDIENTES"
+    );
+
+    const conciliado = await api(`/api/caja/turnos/${turnoId}/conciliar`, {
+      method: "PATCH",
+      token: adminToken,
+      body: { pagoIds: [pagoId] },
+    });
+    check(
+      "Pago electrónico conciliado (200)",
+      conciliado.status === 200 && conciliado.data?.conciliados === 1
+    );
+
+    const cierre = await api(`/api/caja/turnos/${turnoId}/cerrar`, {
+      method: "POST",
+      token: adminToken,
+      body: { efectivoContado: 90 },
+    });
+    check(
+      "Cierre de caja correcto (200)",
+      cierre.status === 200 &&
+        cierre.data?.turno?.estado === "Cerrado" &&
+        Number(cierre.data?.turno?.diferencia) === 0
+    );
+
+    const reporte = await api(`/api/caja/turnos/${turnoId}/reporte`, {
+      token: adminToken,
+    });
+    check(
+      "Reporte de cierre disponible (200)",
+      reporte.status === 200 &&
+        reporte.data?.turno?.estado === "Cerrado" &&
+        reporte.data?.pagos?.length === 1 &&
+        Number(reporte.data?.resumen?.totalTarjeta) > 0
+    );
 
     // 5) Disponibilidad de reservas
     const fecha = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
@@ -268,12 +358,21 @@ async function main() {
       disponibilidad.status === 200 && typeof disponibilidad.data?.disponible === "boolean"
     );
   } finally {
+    if (pedidoId) {
+      await prisma.pago.deleteMany({ where: { pedidoId } }).catch(() => {});
+    }
     if (llamadoId) {
       await prisma.pedido.delete({ where: { id: llamadoId } }).catch(() => {});
     }
     if (pedidoId) {
       await prisma.pedidoDetalle.deleteMany({ where: { pedidoId } });
       await prisma.pedido.delete({ where: { id: pedidoId } }).catch(() => {});
+    }
+    if (turnoId) {
+      await prisma.pago.deleteMany({ where: { turnoId } }).catch(() => {});
+      await prisma.movimientoCaja.deleteMany({ where: { turnoId } }).catch(() => {});
+      await prisma.cajaEvento.deleteMany({ where: { turnoId } }).catch(() => {});
+      await prisma.turnoCaja.delete({ where: { id: turnoId } }).catch(() => {});
     }
     if (productoId && stockRestore !== null) {
       await prisma.producto

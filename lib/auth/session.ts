@@ -3,6 +3,8 @@
  * El token se guarda en una cookie httpOnly y nunca se expone al JavaScript del cliente.
  */
 
+import type { CashPermissions } from "@/lib/auth/cash-permissions";
+
 export const SESSION_COOKIE = "gr_session";
 export const SESSION_MAX_AGE = 60 * 60 * 8; // 8 horas
 
@@ -26,6 +28,8 @@ export interface SessionPayload {
   sections: string[];
   /** Origen de la sesión: login directo o SSO de SASI. */
   authMethod?: "direct" | "sso";
+  /** Acciones SASI por URL para los módulos de caja. */
+  cashPermissions?: CashPermissions;
   iat: number;
   exp: number;
 }

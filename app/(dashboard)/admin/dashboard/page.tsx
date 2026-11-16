@@ -5,16 +5,26 @@ import {
   Layers,
   LayoutGrid,
   Package,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { getDashboardStatsCached } from "@/lib/reports";
+import { getServerSession } from "@/lib/auth/server-session";
+import { CASH_PATHS, hasCashPermission } from "@/lib/auth/cash-permissions";
+import { getCajaDashboard } from "@/lib/caja";
+import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const stats = await getDashboardStatsCached();
+  const session = await getServerSession();
+  const puedeVerCaja = session
+    ? hasCashPermission(session, CASH_PATHS.turno, "LISTAR")
+    : false;
+  const caja = puedeVerCaja ? await getCajaDashboard() : null;
   const ocupacion = stats.mesasTotal
     ? Math.round((stats.mesasOcupadas / stats.mesasTotal) * 100)
     : 0;
@@ -80,6 +90,85 @@ export default async function AdminDashboard() {
           <p className="text-sm text-slate-600">Productos con Stock Bajo</p>
         </Card>
       </div>
+
+      {puedeVerCaja && caja && (
+        <Card className="mb-8 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`rounded-xl p-3 ${
+                  caja.abierta
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                <Wallet size={22} aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Caja</h2>
+                <p className="text-sm text-slate-600">
+                  {caja.abierta && caja.turno
+                    ? `Turno abierto por ${caja.turno.turno.cajeroNombre}`
+                    : caja.ultimo
+                      ? `Último cierre #${caja.ultimo.id}`
+                      : "Sin turnos registrados"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
+              {caja.abierta && caja.turno ? (
+                <>
+                  <span>
+                    Ventas:{" "}
+                    <b className="text-slate-800">
+                      {formatCurrency(caja.turno.resumen.totalVentas)}
+                    </b>
+                  </span>
+                  <span>
+                    Efectivo esperado:{" "}
+                    <b className="text-slate-800">
+                      {formatCurrency(caja.turno.resumen.efectivoEsperado)}
+                    </b>
+                  </span>
+                  <span>
+                    Pendientes:{" "}
+                    <b className="text-slate-800">{caja.turno.pendientesConciliar}</b>
+                  </span>
+                </>
+              ) : caja.ultimo ? (
+                <>
+                  <span>
+                    Ventas:{" "}
+                    <b className="text-slate-800">
+                      {formatCurrency(caja.ultimo.totalVentas)}
+                    </b>
+                  </span>
+                  <span>
+                    Diferencia:{" "}
+                    <b
+                      className={
+                        caja.ultimo.diferencia && Math.abs(caja.ultimo.diferencia) >= 0.01
+                          ? "text-rose-600"
+                          : "text-emerald-600"
+                      }
+                    >
+                      {formatCurrency(caja.ultimo.diferencia ?? 0)}
+                    </b>
+                  </span>
+                </>
+              ) : null}
+              <Link
+                href="/caja"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+              >
+                Ir a caja
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm lg:col-span-2">
