@@ -110,6 +110,30 @@ export default function InventarioClient({ initialData }: { initialData: Inventa
   });
   const [movimientoSaving, setMovimientoSaving] = useState(false);
 
+  const insumoSeleccionadoId = initialData.insumos.some(
+    (insumo) => String(insumo.id) === movimientoForm.insumoId
+  )
+    ? movimientoForm.insumoId
+    : String(initialData.insumos[0]?.id ?? "");
+
+  const almacenSeleccionadoId = initialData.almacenes.some(
+    (almacen) => String(almacen.id) === movimientoForm.almacenId
+  )
+    ? movimientoForm.almacenId
+    : String(initialData.almacenes[0]?.id ?? "");
+
+  const almacenDestinoSeleccionadoId = initialData.almacenes.some(
+    (almacen) =>
+      String(almacen.id) === movimientoForm.almacenDestinoId &&
+      String(almacen.id) !== almacenSeleccionadoId
+  )
+    ? movimientoForm.almacenDestinoId
+    : String(
+        initialData.almacenes.find(
+          (almacen) => String(almacen.id) !== almacenSeleccionadoId
+        )?.id ?? ""
+      );
+
   const [recetaForm, setRecetaForm] = useState({
     productoId: String(initialData.productos[0]?.id ?? ""),
     rendimiento: "1",
@@ -170,12 +194,12 @@ export default function InventarioClient({ initialData }: { initialData: Inventa
     setMovimientoSaving(true);
     try {
       await http.post("/api/inventario/movimientos", {
-        insumoId: Number(movimientoForm.insumoId),
+        insumoId: Number(insumoSeleccionadoId),
         tipo: movimientoForm.tipo,
-        almacenId: Number(movimientoForm.almacenId),
+        almacenId: Number(almacenSeleccionadoId),
         almacenDestinoId:
           movimientoForm.tipo === "TRANSFERENCIA"
-            ? Number(movimientoForm.almacenDestinoId)
+            ? Number(almacenDestinoSeleccionadoId)
             : null,
         cantidad: Number(movimientoForm.cantidad),
         costoUnitario:
@@ -387,7 +411,11 @@ export default function InventarioClient({ initialData }: { initialData: Inventa
 
           <Card className="p-5">
             <h2 className="mb-4 font-bold text-slate-800">Registrar movimiento</h2>
-            {tiposDisponibles.length === 0 ? (
+            {initialData.insumos.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                Primero crea un insumo para poder registrar movimientos.
+              </p>
+            ) : tiposDisponibles.length === 0 ? (
               <p className="text-sm text-slate-600">No tienes permisos para movimientos.</p>
             ) : (
               <form onSubmit={registrarMovimiento} className="space-y-3">
@@ -396,7 +424,7 @@ export default function InventarioClient({ initialData }: { initialData: Inventa
                   <select
                     id="mov-insumo"
                     className={selectBase}
-                    value={movimientoForm.insumoId}
+                    value={insumoSeleccionadoId}
                     onChange={(event) => setMovimientoForm({ ...movimientoForm, insumoId: event.target.value })}
                   >
                     {initialData.insumos.map((insumo) => (
@@ -423,7 +451,7 @@ export default function InventarioClient({ initialData }: { initialData: Inventa
                     <select
                       id="mov-almacen"
                       className={selectBase}
-                      value={movimientoForm.almacenId}
+                      value={almacenSeleccionadoId}
                       onChange={(event) => setMovimientoForm({ ...movimientoForm, almacenId: event.target.value })}
                     >
                       {initialData.almacenes.map((almacen) => (
@@ -438,11 +466,11 @@ export default function InventarioClient({ initialData }: { initialData: Inventa
                     <select
                       id="mov-destino"
                       className={selectBase}
-                      value={movimientoForm.almacenDestinoId}
+                      value={almacenDestinoSeleccionadoId}
                       onChange={(event) => setMovimientoForm({ ...movimientoForm, almacenDestinoId: event.target.value })}
                     >
                       {initialData.almacenes
-                        .filter((almacen) => String(almacen.id) !== movimientoForm.almacenId)
+                        .filter((almacen) => String(almacen.id) !== almacenSeleccionadoId)
                         .map((almacen) => (
                           <option key={almacen.id} value={almacen.id}>{almacen.nombre}</option>
                         ))}
