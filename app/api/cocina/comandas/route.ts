@@ -16,6 +16,7 @@ import {
   normalizeOrderStatus,
 } from "@/lib/order-status";
 import { actorFromSession, auditLog, getAuditContext } from "@/lib/audit";
+import { consumirInventarioPedido, InventoryError } from "@/lib/inventory";
 import { logger } from "@/lib/logger";
 
 const querySchema = z.object({
@@ -56,6 +57,7 @@ export async function PATCH(request: Request) {
 
   const parsed = await parseJson(request, comandaEstadoSchema);
   if (!parsed.success) return parsed.response;
+  const auditContext = getAuditContext(request);
 
   try {
     const resultado = await prisma.$transaction(async (tx) => {
@@ -79,6 +81,10 @@ export async function PATCH(request: Request) {
         where: { id: detalle.id },
         data: { estado: parsed.data.nuevoEstado },
       });
+
+      if (!detalle.pedido.inventarioConsumido) {
+        await consumirInventarioPedido(tx, detalle.pedidoId, session, auditContext);
+      }
 
       const detalles = await tx.pedidoDetalle.findMany({
         where: { pedidoId: detalle.pedidoId },
@@ -112,11 +118,17 @@ export async function PATCH(request: Request) {
         despues: { estado: resultado.detalle.estado },
         motivo: `Plato actualizado a ${resultado.detalle.estado}`,
       },
-      getAuditContext(request)
+      auditContext
     );
 
     return NextResponse.json(resultado);
   } catch (error) {
+    if (error instanceof InventoryError) {
+      return NextResponse.json(
+        { error: error.code, message: error.message },
+        { status: error.status }
+      );
+    }
     if (error instanceof OrderStatusError) {
       return NextResponse.json(
         { error: error.code, message: error.message },

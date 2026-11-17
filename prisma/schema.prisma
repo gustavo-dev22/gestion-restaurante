@@ -31,6 +31,7 @@ model Producto {
   precio             Decimal                   @db.Decimal(10, 2)
   imagen_url         String?                   @db.NVarChar(Max)
   stock              Int?                      @default(0, map: "DF__Productos__stock__3B75D760")
+  tipoInventario     String                    @default("DIRECTO") @db.NVarChar(20)
   categoriaId        Int
   activo             Boolean?                  @default(true, map: "DF__Productos__activ__3C69FB99")
   fecha_creacion     DateTime?                 @default(dbgenerated("GETDATE()"), map: "DF__Productos__fecha__3D5E1FD2")
@@ -42,6 +43,7 @@ model Producto {
   eliminadoPorNombre String?                   @db.NVarChar(150)
   motivoEliminacion  String?                   @db.NVarChar(300)
   historialPrecios   ProductoPrecioHistorial[]
+  receta             Receta?
   categoria          Categoria                 @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "FK_Productos_Categorias")
 
   @@map("Productos")
@@ -67,33 +69,35 @@ model Mesa {
 }
 
 model Pedido {
-  id               Int             @id(map: "PK__Pedidos__3213E83F1137F0B1") @default(autoincrement())
-  mesaId           Int
-  usuarioId        String?         @db.UniqueIdentifier
-  total            Decimal         @default(0.00, map: "DF__Pedidos__total__46E78A0C") @db.Decimal(10, 2)
-  estado           String          @default("BORRADOR", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(30)
-  motivoAnulacion  String?         @db.NVarChar(500)
-  anuladoEn        DateTime?       @db.DateTime2
-  anuladoPorId     String?         @db.NVarChar(100)
-  anuladoPorNombre String?         @db.NVarChar(150)
-  cerradoEn        DateTime?       @db.DateTime2
-  fecha_creacion   DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
-  pagadoEn         DateTime?       @db.DateTime2
-  subtotal         Decimal         @default(0) @db.Decimal(10, 2)
-  descuentoTotal   Decimal         @default(0) @db.Decimal(10, 2)
-  propinaTotal     Decimal         @default(0) @db.Decimal(10, 2)
-  totalPagado      Decimal         @default(0) @db.Decimal(10, 2)
-  saldo            Decimal         @default(0) @db.Decimal(10, 2)
-  estadoPago       String          @default("Pendiente") @db.NVarChar(20)
-  origen           String          @default("POS") @db.NVarChar(20)
-  nombreMesero     String?         @db.NVarChar(100)
-  metodoPago       String?         @db.NVarChar(30)
-  detalles         PedidoDetalle[]
-  pagos            Pago[]
-  descuento        Descuento?
-  devoluciones     Devolucion[]
-  comprobante      Comprobante?
-  mesa             Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
+  id                    Int             @id(map: "PK__Pedidos__3213E83F1137F0B1") @default(autoincrement())
+  mesaId                Int
+  usuarioId             String?         @db.UniqueIdentifier
+  total                 Decimal         @default(0.00, map: "DF__Pedidos__total__46E78A0C") @db.Decimal(10, 2)
+  estado                String          @default("BORRADOR", map: "DF__Pedidos__estado__47DBAE45") @db.NVarChar(30)
+  motivoAnulacion       String?         @db.NVarChar(500)
+  anuladoEn             DateTime?       @db.DateTime2
+  anuladoPorId          String?         @db.NVarChar(100)
+  anuladoPorNombre      String?         @db.NVarChar(150)
+  cerradoEn             DateTime?       @db.DateTime2
+  fecha_creacion        DateTime?       @default(dbgenerated("GETDATE()"), map: "DF__Pedidos__fecha_c__48CFD27E")
+  pagadoEn              DateTime?       @db.DateTime2
+  subtotal              Decimal         @default(0) @db.Decimal(10, 2)
+  descuentoTotal        Decimal         @default(0) @db.Decimal(10, 2)
+  propinaTotal          Decimal         @default(0) @db.Decimal(10, 2)
+  totalPagado           Decimal         @default(0) @db.Decimal(10, 2)
+  saldo                 Decimal         @default(0) @db.Decimal(10, 2)
+  estadoPago            String          @default("Pendiente") @db.NVarChar(20)
+  origen                String          @default("POS") @db.NVarChar(20)
+  inventarioConsumido   Boolean         @default(false)
+  inventarioConsumidoEn DateTime?       @db.DateTime2
+  nombreMesero          String?         @db.NVarChar(100)
+  metodoPago            String?         @db.NVarChar(30)
+  detalles              PedidoDetalle[]
+  pagos                 Pago[]
+  descuento             Descuento?
+  devoluciones          Devolucion[]
+  comprobante           Comprobante?
+  mesa                  Mesa            @relation(fields: [mesaId], references: [id], onUpdate: NoAction, map: "FK_Pedidos_Mesas")
 
   @@map("Pedidos")
 }
@@ -106,6 +110,8 @@ model PedidoDetalle {
   precio_unitario    Decimal             @db.Decimal(10, 2)
   // subtotal es una columna calculada en SQL Server; no se gestiona desde Prisma.
   estado             String              @default("PENDIENTE") @db.NVarChar(20)
+  costoUnitario      Decimal?            @db.Decimal(14, 4)
+  costoTotal         Decimal?            @db.Decimal(14, 4)
   pedido             Pedido              @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Pedido")
   producto           Producto            @relation(fields: [productoId], references: [id], onUpdate: NoAction, map: "FK_Detalle_Producto")
   aplicaciones       PagoAplicacion[]
@@ -507,4 +513,119 @@ model LlamadoMesero {
 
   @@index([mesaId, estado, creadoEn])
   @@map("LlamadosMesero")
+}
+
+model UnidadMedida {
+  id         Int      @id @default(autoincrement())
+  codigo     String   @unique @db.NVarChar(20)
+  nombre     String   @db.NVarChar(100)
+  tipo       String   @db.NVarChar(20)
+  factorBase Decimal  @default(1) @db.Decimal(18, 6)
+  activo     Boolean  @default(true)
+  insumos    Insumo[]
+
+  @@map("UnidadesMedida")
+}
+
+model Almacen {
+  id                 Int                @id @default(autoincrement())
+  codigo             String             @unique @db.NVarChar(30)
+  nombre             String             @db.NVarChar(100)
+  tipo               String             @db.NVarChar(20)
+  activo             Boolean            @default(true)
+  stocks             InsumoStock[]
+  movimientosOrigen  InsumoMovimiento[] @relation("MovimientoAlmacenOrigen")
+  movimientosDestino InsumoMovimiento[] @relation("MovimientoAlmacenDestino")
+
+  @@map("Almacenes")
+}
+
+model Insumo {
+  id                 Int                @id @default(autoincrement())
+  nombre             String             @db.NVarChar(150)
+  unidadBaseId       Int
+  stockMinimo        Decimal            @default(0) @db.Decimal(14, 3)
+  puntoRecompra      Decimal            @default(0) @db.Decimal(14, 3)
+  leadTimeDias       Int                @default(0)
+  costoPromedio      Decimal            @default(0) @db.Decimal(14, 4)
+  activo             Boolean            @default(true)
+  eliminadoEn        DateTime?          @db.DateTime2
+  eliminadoPorId     String?            @db.NVarChar(100)
+  eliminadoPorNombre String?            @db.NVarChar(150)
+  motivoEliminacion  String?            @db.NVarChar(300)
+  createdAt          DateTime           @default(now()) @db.DateTime2
+  updatedAt          DateTime           @updatedAt @db.DateTime2
+  unidadBase         UnidadMedida       @relation(fields: [unidadBaseId], references: [id], onUpdate: NoAction)
+  stocks             InsumoStock[]
+  movimientos        InsumoMovimiento[]
+  recetaDetalles     RecetaDetalle[]
+
+  @@index([activo])
+  @@map("Insumos")
+}
+
+model InsumoStock {
+  insumoId  Int
+  almacenId Int
+  cantidad  Decimal @default(0) @db.Decimal(14, 3)
+  insumo    Insumo  @relation(fields: [insumoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  almacen   Almacen @relation(fields: [almacenId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([insumoId, almacenId])
+  @@index([almacenId])
+  @@map("InsumoStock")
+}
+
+model Receta {
+  id              Int             @id @default(autoincrement())
+  productoId      Int             @unique
+  rendimiento     Decimal         @default(1) @db.Decimal(10, 3)
+  mermaPorcentaje Decimal         @default(0) @db.Decimal(5, 2)
+  activo          Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @db.DateTime2
+  updatedAt       DateTime        @updatedAt @db.DateTime2
+  producto        Producto        @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  detalles        RecetaDetalle[]
+
+  @@map("Recetas")
+}
+
+model RecetaDetalle {
+  id       Int     @id @default(autoincrement())
+  recetaId Int
+  insumoId Int
+  cantidad Decimal @db.Decimal(14, 3)
+  receta   Receta  @relation(fields: [recetaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  insumo   Insumo  @relation(fields: [insumoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([recetaId, insumoId])
+  @@index([insumoId])
+  @@map("RecetaDetalles")
+}
+
+model InsumoMovimiento {
+  id                Int      @id @default(autoincrement())
+  insumoId          Int
+  almacenId         Int
+  almacenDestinoId  Int?
+  tipo              String   @db.NVarChar(30)
+  cantidad          Decimal  @db.Decimal(14, 3)
+  costoUnitario     Decimal  @default(0) @db.Decimal(14, 4)
+  costoTotal        Decimal  @default(0) @db.Decimal(14, 4)
+  motivo            String?  @db.NVarChar(300)
+  responsableId     String?  @db.NVarChar(100)
+  responsableNombre String?  @db.NVarChar(150)
+  referenciaTipo    String?  @db.NVarChar(30)
+  referenciaId      Int?
+  pedidoId          Int?
+  pedidoDetalleId   Int?
+  createdAt         DateTime @default(now()) @db.DateTime2
+  insumo            Insumo   @relation(fields: [insumoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  almacen           Almacen  @relation("MovimientoAlmacenOrigen", fields: [almacenId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  almacenDestino    Almacen? @relation("MovimientoAlmacenDestino", fields: [almacenDestinoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([insumoId, createdAt])
+  @@index([almacenId, createdAt])
+  @@index([pedidoId])
+  @@map("InsumoMovimientos")
 }

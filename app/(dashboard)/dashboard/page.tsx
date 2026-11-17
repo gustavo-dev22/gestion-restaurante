@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Boxes, LayoutDashboard } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { getServerSession } from "@/lib/auth/server-session";
+import { hasLocalPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export default async function DashboardPage() {
   const nombre = session?.nombre ?? "Usuario";
   const rol = session?.rol ?? "Usuario";
   const home = session?.home ?? "/dashboard";
+  const puedeInventario = session
+    ? await hasLocalPermission(session, "inventory:read")
+    : false;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -38,6 +42,19 @@ export default async function DashboardPage() {
           </div>
           <ArrowRight className="text-slate-400 transition-colors group-hover:text-blue-600" aria-hidden="true" />
         </Link>
+
+        {puedeInventario && (
+          <Link
+            href="/inventario"
+            className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-teal-500 hover:shadow-md"
+          >
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">Operación</p>
+              <p className="text-xl font-bold text-slate-800">Inventario real</p>
+            </div>
+            <Boxes className="text-slate-400 transition-colors group-hover:text-teal-600" aria-hidden="true" />
+          </Link>
+        )}
       </div>
     </div>
   );

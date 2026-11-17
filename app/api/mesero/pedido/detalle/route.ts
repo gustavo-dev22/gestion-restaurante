@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const pedido = await prisma.pedido.findUnique({
       where: { id: pedidoId },
-      select: { id: true, estado: true, usuarioId: true },
+      select: { id: true, estado: true, usuarioId: true, inventarioConsumido: true },
     });
 
     if (!pedido) {
@@ -33,6 +33,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "FORBIDDEN", message: "No puedes modificar un pedido de otro mesero." },
         { status: 403 }
+      );
+    }
+
+    if (pedido.inventarioConsumido) {
+      return NextResponse.json(
+        {
+          error: "INVENTARIO_CONSUMIDO",
+          message: "No se pueden agregar platos después de iniciar cocina.",
+        },
+        { status: 409 }
       );
     }
 
@@ -61,7 +71,7 @@ export async function POST(request: Request) {
       for (const item of itemsNormalizados) {
         const producto = await tx.producto.findUnique({
           where: { id: item.productoId },
-          select: { id: true, nombre: true, precio: true, stock: true, activo: true },
+          select: { id: true, nombre: true, precio: true, stock: true, tipoInventario: true, activo: true },
         });
 
         if (!producto || !producto.activo) {
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
         }
 
         // Descuento atómico: evita stock negativo bajo concurrencia.
-        if (producto.stock !== null) {
+        if (producto.stock !== null && producto.tipoInventario !== "RECETA") {
           const descontado = await tx.producto.updateMany({
             where: { id: item.productoId, stock: { gte: item.cantidad } },
             data: { stock: { decrement: item.cantidad } },

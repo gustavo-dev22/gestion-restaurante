@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       for (const item of itemsNormalizados) {
         const producto = await tx.producto.findUnique({
           where: { id: item.productoId },
-          select: { id: true, nombre: true, precio: true, stock: true, activo: true },
+          select: { id: true, nombre: true, precio: true, stock: true, tipoInventario: true, activo: true },
         });
 
         if (!producto || !producto.activo) {
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
         }
 
         // Descuento atómico de stock: la condición evita negativos por concurrencia.
-        if (producto.stock !== null) {
+        if (producto.stock !== null && producto.tipoInventario !== "RECETA") {
           const descontado = await tx.producto.updateMany({
             where: { id: item.productoId, stock: { gte: item.cantidad } },
             data: { stock: { decrement: item.cantidad } },

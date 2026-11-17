@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle,
   FileText,
+  Boxes,
   Layers,
   LayoutGrid,
   Package,
@@ -32,6 +33,9 @@ export default async function AdminDashboard() {
     : false;
   const puedeVerAuditoria = session
     ? await hasLocalPermission(session, "audit:read")
+    : false;
+  const puedeVerInventario = session
+    ? await hasLocalPermission(session, "inventory:read")
     : false;
   const caja = puedeVerCaja ? await getCajaDashboard() : null;
   const ocupacion = stats.mesasTotal
@@ -279,6 +283,21 @@ export default async function AdminDashboard() {
                   <FileText size={20} aria-hidden="true" />
                 </div>
                 <span className="font-semibold text-slate-700">Registro de Auditoría</span>
+              </div>
+              <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
+            </Link>
+          )}
+
+          {puedeVerInventario && (
+            <Link
+              href="/inventario"
+              className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-teal-500 hover:shadow-md"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-teal-50 p-2 text-teal-600 transition-colors group-hover:bg-teal-600 group-hover:text-white">
+                  <Boxes size={20} aria-hidden="true" />
+                </div>
+                <span className="font-semibold text-slate-700">Inventario real</span>
               </div>
               <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
             </Link>

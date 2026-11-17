@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Package, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -81,6 +82,15 @@ export default function InventarioRapidoPage() {
       <PageHeader
         title="Inventario de Producción"
         description="Gestiona la disponibilidad de platos y bebidas para el salón"
+        actions={
+          <Link
+            href="/inventario"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            <Package size={16} aria-hidden="true" />
+            Inventario real
+          </Link>
+        }
       />
 
       {/* Buscador Rápido */}

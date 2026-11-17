@@ -62,56 +62,158 @@ export async function getHorasPicoReport(): Promise<HorasPicoReport> {
 }
 
 // ---------- Ingeniería de menú ----------
+export type IngenieriaClasificacion =
+  | "ESTRELLA"
+  | "CABALLO"
+  | "ROMPECABEZAS"
+  | "PERRO"
+  | "SIN_COSTO"
+  | "SIN_VENTAS";
+
 export interface IngenieriaItem {
   id: number;
   nombre: string;
   cantidad: number;
+  ingreso: number;
+  costo: number | null;
+  margenUnitario: number | null;
+  margenTotal: number | null;
   margen: string;
-  clasificacion: string;
+  mix: number;
+  clasificacion: IngenieriaClasificacion;
 }
 
 export interface IngenieriaReport {
   matriz: IngenieriaItem[];
   promedioVentas: string;
   conteos: Record<string, number>;
+  totalUnidades: number;
+  totalIngreso: number;
+  totalCosto: number;
+  totalMargen: number;
+  costoCompleto: boolean;
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
 }
 
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
+}
+
 export async function getIngenieriaReport(page = 1): Promise<IngenieriaReport> {
-  const ventas = await prisma.pedidoDetalle.groupBy({
-    by: ["productoId"],
-    where: { pedido: { estado: { not: "ANULADO" } } },
-    _sum: { cantidad: true },
-  });
+  const [detalles, productos] = await Promise.all([
+    prisma.pedidoDetalle.findMany({
+      where: { pedido: { estado: { in: ["PAGADO", "CERRADO"] } } },
+      select: {
+        productoId: true,
+        cantidad: true,
+        precio_unitario: true,
+        costoTotal: true,
+      },
+    }),
+    prisma.producto.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, precio: true },
+      orderBy: { nombre: "asc" },
+    }),
+  ]);
 
-  const productos = await prisma.producto.findMany({
-    select: { id: true, nombre: true, precio: true },
-  });
+  const acumulado = new Map<
+    number,
+    { cantidad: number; ingreso: number; costo: number; costoConocido: boolean; costoCompleto: boolean }
+  >();
 
-  const totalVendido = ventas.reduce((acc, venta) => acc + (venta._sum.cantidad ?? 0), 0);
-  const promedioVentas = productos.length > 0 ? totalVendido / productos.length : 0;
+  for (const detalle of detalles) {
+    const actual = acumulado.get(detalle.productoId) ?? {
+      cantidad: 0,
+      ingreso: 0,
+      costo: 0,
+      costoConocido: false,
+      costoCompleto: true,
+    };
+    actual.cantidad += detalle.cantidad;
+    actual.ingreso += Number(detalle.precio_unitario) * detalle.cantidad;
+    if (detalle.costoTotal === null) {
+      actual.costoCompleto = false;
+    } else {
+      actual.costo += Number(detalle.costoTotal);
+      actual.costoConocido = true;
+    }
+    acumulado.set(detalle.productoId, actual);
+  }
 
-  const matrizCompleta = productos.map((producto) => {
-    const venta = ventas.find((item) => item.productoId === producto.id);
-    const cantidad = venta?._sum.cantidad ?? 0;
-    const precio = Number(producto.precio);
-    const margen = precio - precio * 0.6;
-    const esPopular = cantidad >= promedioVentas;
-    const esRentable = margen > precio * 0.3;
+  const totalUnidades = Array.from(acumulado.values()).reduce(
+    (total, item) => total + item.cantidad,
+    0
+  );
+  const conCosto = Array.from(acumulado.entries())
+    .filter(([, item]) => item.cantidad > 0 && item.costoCompleto)
+    .map(([productoId, item]) => ({
+      productoId,
+      cantidad: item.cantidad,
+      margenUnitario: (item.ingreso - item.costo) / item.cantidad,
+    }));
+  const medianaPopularidad = median(conCosto.map((item) => item.cantidad));
+  const medianaMargen = median(conCosto.map((item) => item.margenUnitario));
 
-    let clasificacion = "PERRO";
-    if (esPopular && esRentable) clasificacion = "ESTRELLA";
-    else if (esPopular && !esRentable) clasificacion = "CABALLO";
-    else if (!esPopular && esRentable) clasificacion = "ROMPECABEZAS";
+  let totalIngreso = 0;
+  let totalCosto = 0;
+  let costoCompleto = true;
+
+  const matrizCompleta: IngenieriaItem[] = productos.map((producto) => {
+    const item = acumulado.get(producto.id);
+    const cantidad = item?.cantidad ?? 0;
+    const ingreso = item?.ingreso ?? 0;
+    const costo = item?.costoConocido ? item.costo : null;
+    const margenUnitario =
+      item?.costoCompleto && costo !== null && cantidad > 0
+        ? (ingreso - costo) / cantidad
+        : null;
+    const margenTotal = item?.costoCompleto && costo !== null ? ingreso - costo : null;
+    const mix = totalUnidades > 0 ? cantidad / totalUnidades : 0;
+
+    totalIngreso += ingreso;
+    if (item?.costoConocido) totalCosto += item.costo;
+    if (cantidad > 0 && !item?.costoCompleto) costoCompleto = false;
+
+    let clasificacion: IngenieriaClasificacion;
+    if (cantidad === 0) {
+      clasificacion = "SIN_VENTAS";
+    } else if (!item?.costoCompleto || costo === null || margenUnitario === null) {
+      clasificacion = "SIN_COSTO";
+    } else {
+      const popular = cantidad >= medianaPopularidad;
+      const rentable = margenUnitario >= medianaMargen;
+      clasificacion = popular
+        ? rentable
+          ? "ESTRELLA"
+          : "CABALLO"
+        : rentable
+          ? "ROMPECABEZAS"
+          : "PERRO";
+    }
 
     return {
       id: producto.id,
       nombre: producto.nombre,
       cantidad,
-      margen: margen.toFixed(2),
+      ingreso: Math.round(ingreso * 100) / 100,
+      costo: costo === null ? null : Math.round(costo * 100) / 100,
+      margenUnitario:
+        margenUnitario === null ? null : Math.round(margenUnitario * 100) / 100,
+      margenTotal: margenTotal === null ? null : Math.round(margenTotal * 100) / 100,
+      margen:
+        margenUnitario === null
+          ? "Sin costo real"
+          : margenUnitario.toFixed(2),
+      mix,
       clasificacion,
     };
   });
@@ -128,26 +230,36 @@ export async function getIngenieriaReport(page = 1): Promise<IngenieriaReport> {
 
   return {
     matriz: items,
-    promedioVentas: promedioVentas.toFixed(2),
+    promedioVentas:
+      productos.length > 0 ? (totalUnidades / productos.length).toFixed(2) : "0.00",
     conteos,
+    totalUnidades,
+    totalIngreso: Math.round(totalIngreso * 100) / 100,
+    totalCosto: Math.round(totalCosto * 100) / 100,
+    totalMargen: Math.round((totalIngreso - totalCosto) * 100) / 100,
+    costoCompleto,
     total,
     page: current,
     pageSize,
     totalPages,
   };
 }
-
 // ---------- Inventario ----------
-export interface InventarioCritico {
+export interface InsumoCritico {
   id: number;
   nombre: string;
-  stock: number | null;
-  categoria: { nombre: string } | null;
+  unidad: string;
+  stockTotal: number;
+  stockMinimo: number;
+  puntoRecompra: number;
+  costoPromedio: number;
+  valor: number;
+  almacenes: Array<{ nombre: string; cantidad: number }>;
 }
 
 export interface InventarioReport {
-  critico: InventarioCritico[];
-  resumen: { totalProductosCriticos: number; valorizacionBodega: string };
+  critico: InsumoCritico[];
+  resumen: { totalInsumosCriticos: number; valorizacionBodega: string };
   total: number;
   page: number;
   pageSize: number;
@@ -155,35 +267,63 @@ export interface InventarioReport {
 }
 
 export async function getInventarioReport(page = 1): Promise<InventarioReport> {
-  const criticoCompleto = await prisma.producto.findMany({
-    where: { stock: { lte: 10 } },
-    select: {
-      id: true,
-      nombre: true,
-      stock: true,
-      categoria: { select: { nombre: true } },
+  const insumos = await prisma.insumo.findMany({
+    where: { activo: true },
+    include: {
+      unidadBase: true,
+      stocks: { include: { almacen: true } },
     },
-    orderBy: { stock: "asc" },
+    orderBy: { nombre: "asc" },
   });
 
-  const productos = await prisma.producto.findMany({
-    select: { precio: true, stock: true },
+  const mapa = insumos.map((insumo) => {
+    const stockTotal = insumo.stocks.reduce(
+      (total, stock) => total + Number(stock.cantidad),
+      0
+    );
+    const bajo =
+      (Number(insumo.stockMinimo) > 0 && stockTotal <= Number(insumo.stockMinimo)) ||
+      (Number(insumo.puntoRecompra) > 0 && stockTotal <= Number(insumo.puntoRecompra));
+    return {
+      id: insumo.id,
+      nombre: insumo.nombre,
+      unidad: insumo.unidadBase.codigo,
+      stockTotal,
+      stockMinimo: Number(insumo.stockMinimo),
+      puntoRecompra: Number(insumo.puntoRecompra),
+      costoPromedio: Number(insumo.costoPromedio),
+      valor: stockTotal * Number(insumo.costoPromedio),
+      almacenes: insumo.stocks.map((stock) => ({
+        nombre: stock.almacen.nombre,
+        cantidad: Number(stock.cantidad),
+      })),
+      bajo,
+    };
   });
 
-  const valorizacion = productos.reduce((acc, producto) => {
-    const costoSimulado = Number(producto.precio) * 0.4;
-    return acc + Number(producto.stock ?? 0) * costoSimulado;
-  }, 0);
-
+  const criticoCompleto = mapa
+    .filter((insumo) => insumo.bajo)
+    .sort((a, b) => a.stockTotal - b.stockTotal);
+  const valorizacion = mapa.reduce((total, insumo) => total + insumo.valor, 0);
   const { items, total, page: current, pageSize, totalPages } = paginate(
     criticoCompleto,
     page
   );
 
   return {
-    critico: items,
+    critico: items.map((insumo) => ({
+      id: insumo.id,
+      nombre: insumo.nombre,
+      unidad: insumo.unidad,
+      stockTotal: insumo.stockTotal,
+      stockMinimo: insumo.stockMinimo,
+      puntoRecompra: insumo.puntoRecompra,
+      costoPromedio: insumo.costoPromedio,
+      valor: insumo.valor,
+      almacenes: insumo.almacenes,
+    })),
     resumen: {
-      totalProductosCriticos: criticoCompleto.length,
+      totalInsumosCriticos: criticoCompleto.length,
       valorizacionBodega: valorizacion.toFixed(2),
     },
     total,
@@ -192,8 +332,7 @@ export async function getInventarioReport(page = 1): Promise<InventarioReport> {
     totalPages,
   };
 }
-
-// ---------- Desempeño del personal ----------
+// ---------- DesempeÃ±o del personal ----------
 export interface PersonalRankingItem {
   id: string;
   mesero: string;

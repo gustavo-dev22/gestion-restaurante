@@ -271,6 +271,41 @@ export const mesaSchema = z.object({
 
 export const mesaUpdateSchema = mesaSchema.partial().extend({ id: idSchema });
 
+export const insumoSchema = z.object({
+  nombre: z.string().trim().min(1).max(150),
+  unidadBaseId: idSchema,
+  stockMinimo: moneySchema,
+  puntoRecompra: moneySchema,
+  leadTimeDias: z.coerce.number().int().min(0).max(365),
+});
+
+export const insumoUpdateSchema = insumoSchema.partial().extend({ id: idSchema });
+
+export const movimientoInsumoSchema = z.object({
+  insumoId: idSchema,
+  almacenId: idSchema,
+  almacenDestinoId: idSchema.optional().nullable(),
+  tipo: z.enum(["COMPRA", "MERMA", "AJUSTE", "TRANSFERENCIA", "CONTEO"]),
+  cantidad: z.coerce.number().finite(),
+  costoUnitario: moneySchema.optional(),
+  motivo: z.string().trim().max(300).optional().nullable(),
+});
+
+export const recetaSchema = z.object({
+  productoId: idSchema,
+  rendimiento: z.coerce.number().finite().positive(),
+  mermaPorcentaje: z.coerce.number().finite().min(0).max(100),
+  activo: z.boolean().optional(),
+  detalles: z
+    .array(
+      z.object({
+        insumoId: idSchema,
+        cantidad: z.coerce.number().finite().positive(),
+      })
+    )
+    .min(1),
+});
+
 export const cuponSchema = z.object({
   codigo: z.string().trim().min(1).max(50),
   tipo: z.enum(["Porcentaje", "Monto"]),
@@ -371,4 +406,8 @@ export type DetalleInput = z.infer<typeof detalleSchema>;
 export type ComandaEstadoInput = z.infer<typeof comandaEstadoSchema>;
 export type PedidoEstadoInput = z.infer<typeof pedidoEstadoSchema>;
 export type CobrarPedidoInput = z.infer<typeof cobrarPedidoSchema>;
+export type InsumoInput = z.infer<typeof insumoSchema>;
+export type InsumoUpdateInput = z.infer<typeof insumoUpdateSchema>;
+export type MovimientoInsumoApiInput = z.infer<typeof movimientoInsumoSchema>;
+export type RecetaInput = z.infer<typeof recetaSchema>;
 export type DetailStatusValue = DetailStatus;

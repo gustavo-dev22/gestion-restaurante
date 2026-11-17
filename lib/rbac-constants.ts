@@ -18,6 +18,13 @@ export type PermissionCode =
   | "orders:cancel"
   | "orders:prepare"
   | "orders:serve"
+  | "inventory:read"
+  | "inventory:manage"
+  | "inventory:waste"
+  | "inventory:count"
+  | "inventory:transfer"
+  | "inventory:purchase"
+  | "costs:read"
   | "reports:read"
   | "reports:export";
 
@@ -151,6 +158,48 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
     descripcion: "Marcar pedidos servidos y atender llamados.",
   },
   {
+    codigo: "inventory:read",
+    nombre: "Ver inventario",
+    grupo: "Inventario",
+    descripcion: "Consultar insumos, recetas y stock.",
+  },
+  {
+    codigo: "inventory:manage",
+    nombre: "Gestionar inventario",
+    grupo: "Inventario",
+    descripcion: "Crear insumos y recetas.",
+  },
+  {
+    codigo: "inventory:waste",
+    nombre: "Registrar merma",
+    grupo: "Inventario",
+    descripcion: "Registrar pérdidas con motivo y responsable.",
+  },
+  {
+    codigo: "inventory:count",
+    nombre: "Realizar conteo",
+    grupo: "Inventario",
+    descripcion: "Registrar conteos físicos y ajustes.",
+  },
+  {
+    codigo: "inventory:transfer",
+    nombre: "Transferir stock",
+    grupo: "Inventario",
+    descripcion: "Mover insumos entre almacenes.",
+  },
+  {
+    codigo: "inventory:purchase",
+    nombre: "Registrar compra",
+    grupo: "Inventario",
+    descripcion: "Registrar entradas de insumos y costos.",
+  },
+  {
+    codigo: "costs:read",
+    nombre: "Ver costos reales",
+    grupo: "Inventario",
+    descripcion: "Consultar costos y márgenes reales.",
+  },
+  {
     codigo: "reports:read",
     nombre: "Ver reportes",
     grupo: "Reportes",
@@ -206,7 +255,14 @@ export const ROLE_DEFINITIONS: readonly RoleDefinition[] = [
     codigo: "COCINA",
     nombre: "Cocina / Bar",
     descripcion: "Comandas y ajuste de disponibilidad de productos.",
-    permisos: ["stock:adjust", "orders:prepare"],
+    permisos: [
+      "stock:adjust",
+      "orders:prepare",
+      "inventory:read",
+      "inventory:waste",
+      "inventory:count",
+      "inventory:transfer",
+    ],
   },
   {
     codigo: "AUDITOR",
@@ -222,6 +278,7 @@ export const PERMISSION_GROUPS = [
   "Cobros",
   "Caja",
   "Carta",
+  "Inventario",
   "Stock",
   "Salón",
   "Reservas",
